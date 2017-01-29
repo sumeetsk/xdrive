@@ -126,20 +126,35 @@ def install_wordpress():
     fab.run("wordpress/docker-compose up -d")
         
 def install_projects(projects=["basics", "analysis", "meetup"]):
-    for project in projects:
-        fab.run("mkdir -p %s"%project)
-        fab.run(getgit.format(project=project))
+    for project in projects: 
+        # DANGEROUS TO REMOVE FOLDER BASED ON PARAMETER!!!!
+        #fab.sudo("rm -r %s"%project)
+        
+        fab.run("mkdir %s || true"%project)
+        
+        # get source from laptop (only git controlled files)
+        with fab.lcd(os.path.join(here, os.pardir, project)):
+            fab.local("git archive HEAD > %s.tar"%project)
+            fab.put("%s.tar"%project)
+        fab.run("tar xf {project}.tar -C {project}".format(**locals()))
+        fab.run("rm %s.tar"%project)
+        
+        # get source from git (includes full repo. not needed for docker)
+        #fab.run(getgit.format(project=project))
     
-    # meetup creds from laptop
-    fab.put(os.path.join(os.path.expanduser("~"), 
-                "documents/py/apps/meetup", "_creds.py"), "meetup")
+        # required files excluded from git archive
+        try:
+            fab.put(os.path.join(here, os.pardir, project, 
+                                     "_creds.py"), project)
+        except ValueError:
+            pass
     
     # notebook config
     os.chdir(here)
     with open("jupyter/jupyter_notebook_config.py") as f:
         config = f.read()
     config = config + "\nc.NotebookApp.password='%s'"%passwd(nbpassword)
-    fab.run('mkdir -p .jupyter')
+    fab.run('mkdir .jupyter || true')
     fab.put(io.StringIO(config) , ".jupyter/jupyter_notebook_config.py")
 
 ### restart ###########################################################
