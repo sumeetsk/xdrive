@@ -81,12 +81,25 @@ def create_server(servertype="free", disksize=15):
 
 def show():
     """ shows list of instances """
-    a=[["name", "instance_id","image","type","state","ip"]]
+    a=[]
     for i in list(ec2.instances.all()):
-                    a.append([getName(i), i.instance_id, i.image.image_id,
-                              i.instance_type, i.state["Name"],                                             i.public_ip_address])
-    d(pd.DataFrame(a[1:], columns=a[0]))
+        a.append([getName(i), i.instance_id, i.image.image_id,
+                  i.instance_type, i.state["Name"],
+                  i.public_ip_address])
+    d(pd.DataFrame(a, columns=["name", "instance_id","image","type","state","ip"]))
 
+def gettasks(target="python"):
+    """ returns dict of container=[task]
+    for tasks matching target in running containers """
+    
+    containers = fab.run("docker inspect --format='{{.Name}}' $(docker ps -aq)").splitlines()
+    containers = [c.lstrip("/") for c in containers]
+    out = dict()
+    for container in containers:
+        tasks = fab.run("docker exec %s ps -eo args | grep %s"%(container, target)).splitlines()
+        out[container] = tasks
+    return out
+    
 def getName(resource):
     """ get name from resource """
     try:
