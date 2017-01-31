@@ -1,4 +1,6 @@
-# setup container for jupyter and analysis
+# NOT TESTED
+# can be adapted to create container with additional packages added to
+# kaggle/python
 
 FROM kaggle/python
 COPY jupyter_notebook_config.py /root/.jupyter
