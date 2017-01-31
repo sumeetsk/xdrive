@@ -1,44 +1,26 @@
 # -*- coding: utf-8 -*-
 """
-AWS functions
-    create AWS key, security group and server
-    install applications on server
-        source from github
-        creds from laptop
-    run docker containers
-        wordpress/mysql
-        jupyter notebook
-        meetup
-
+collection of functions for managing AWS
+    create key, security group and server
+    various tools
+    
 manual steps before running scripts
     create AWS account
+    create config and credentials on local client
     request gpu access
 """
 import logging as log
 import pandas as pd
 from IPython.display import display as d
-import os
-import io
-from _creds import notebook as nbpassword
-from notebook.auth import passwd
-
 import boto3
-import fabric.api as fab
-log.getLogger("paramiko").setLevel(log.ERROR)
+import os
 
 ### parameters ####################################################
 
-# login parameters
 user = 'ec2-user'
 keyfile = os.path.join(os.path.expanduser("~"), ".aws", "key.pem")
-
-# fabric parameters
-fab.env.user = user
-fab.env.key_filename = keyfile
-
-here = os.path.dirname(os.path.abspath(__file__))
 ec2 = boto3.resource('ec2')
-getgit = "if cd {project}; then git pull; else git clone https://github.com/simonm3/{project}.git {project}; fi"
+client = boto3.client('ec2')
 
 ### create resource ####################################################
     
@@ -52,7 +34,7 @@ def create_key():
         log.warning(e)
 
 def create_securityGroup():
-    """ creates security group """
+    """ create security group with inbound access for http, jupyter and ssh """
     sec = ec2.create_security_group(GroupName="simon", 
                                     Decription="wordpress, jupyter, ssh")
     sec.authorize_ingress(
@@ -62,11 +44,11 @@ def create_securityGroup():
                          dict(IpProtocol='tcp', FromPort=22, ToPort=22)])
     return sec
 
-def create_server(servertype="free", disksize=15):
-    """ create and start instance """
+def create_server(image_id="ami-c51e3eb6", servertype="free", disksize=15):
+    """ create instance using ami for amazon linux """
     servers = dict(free="t2.micro", gpu="p2.xlarge")
     instances = ec2.create_instances(
-                        ImageId="ami-c51e3eb6",    # amazon linux
+                        ImageId=image_id,
                         MinCount=1, MaxCount=1, 
                         InstanceType=servers[servertype], 
                         SecurityGroups=["simon"],
@@ -74,31 +56,31 @@ def create_server(servertype="free", disksize=15):
                         BlockDeviceMappings=[dict(DeviceName="/dev/xvda", 
                                              Ebs=dict(VolumeSize=disksize))])
     instances[0].wait_until_running()
-    show()
     return instances[0]
 
+def create_staticIP(instancename):
+    """ create a new elastic IP address and assigns to instance """
+    client = boto3.client("ec2")
+    id = getRes(instancename, ec2.instances).id
+    ip = client.allocate_address()["PublicIp"]
+    client.associate_address(InstanceId=id, PublicIp=ip)
+
+def create_gpu(instance_name):
+    """ copy server to ami and creates new server on gpu """
+    id = getRes(instance_name, ec2.instances).id
+    image_id = client.create_image(InstanceId=id, Name="ami1")
+    return create_server(image_id, "gpu", 30)
+    
 ### tools ##############################################################
 
 def show():
-    """ shows list of instances """
+    """ show list of instances """
     a=[]
-    for i in list(ec2.instances.all()):
+    for i in ec2.instances.all():
         a.append([getName(i), i.instance_id, i.image.image_id,
                   i.instance_type, i.state["Name"],
                   i.public_ip_address])
     d(pd.DataFrame(a, columns=["name", "instance_id","image","type","state","ip"]))
-
-def gettasks(target="python"):
-    """ returns dict of container=[task]
-    for tasks matching target in running containers """
-    
-    containers = fab.run("docker inspect --format='{{.Name}}' $(docker ps -aq)").splitlines()
-    containers = [c.lstrip("/") for c in containers]
-    out = dict()
-    for container in containers:
-        tasks = fab.run("docker exec %s ps -eo args | grep %s"%(container, target)).splitlines()
-        out[container] = tasks
-    return out
     
 def getName(resource):
     """ get name from resource """
@@ -115,77 +97,6 @@ def getName(resource):
             
 def getRes(name, collection):
     """ get resource by name """
-    for i in list(collection.all()):
+    for i in collection.all():
         if name == getName(i):
             return i
-
-### install ####################################################
-
-def install_base():
-    # docker and docker-compose
-    fab.sudo("yum install docker")
-    url = "https://github.com/docker/compose/releases/download/\
-        1.9.0/docker-compose-$(uname -s)-$(uname -m)"
-    fab.run("curl -L %s -o /usr/local/bin/docker-compose"%url)
-    fab.sudo("chmod +x /usr/local/bin/docker-compose")
-
-    # other
-    fab.sudo("yum install git -y")
-    fab.run("docker pull kaggle/python")
-    
-def install_wordpress():
-    fab.run("mkdir wordpress || true")
-    fab.put("wordpress/docker-compose.yml", "wordpress")
-    fab.run("wordpress/docker-compose up -d")
-        
-def install_projects(projects=["basics", "analysis", "meetup"]):
-    for project in projects: 
-        # DANGEROUS TO REMOVE FOLDER BASED ON PARAMETER!!!!
-        #fab.sudo("rm -r %s"%project)
-        
-        fab.run("mkdir %s || true"%project)
-        
-        # get source from laptop (only git controlled files)
-        with fab.lcd(os.path.join(here, os.pardir, project)):
-            fab.local("git archive HEAD > %s.tar"%project)
-            fab.put("%s.tar"%project)
-        fab.run("tar xf {project}.tar -C {project}".format(**locals()))
-        fab.run("rm %s.tar"%project)
-        
-        # get source from git (includes full repo. not needed for docker)
-        #fab.run(getgit.format(project=project))
-    
-        # required files excluded from git archive
-        try:
-            fab.put(os.path.join(here, os.pardir, project, 
-                                     "_creds.py"), project)
-        except ValueError:
-            pass
-    
-    # notebook config
-    os.chdir(here)
-    with open("jupyter/jupyter_notebook_config.py") as f:
-        config = f.read()
-    config = config + "\nc.NotebookApp.password='%s'"%passwd(nbpassword)
-    fab.run('mkdir .jupyter || true')
-    fab.put(io.StringIO(config) , ".jupyter/jupyter_notebook_config.py")
-
-### restart ###########################################################
-
-def restart_notebook():
-    fab.run("docker rm -f notebook || true")
-    # -d=daemon. -i=keep running
-    volumes = "-v $PWD/.ssh:/root/.ssh -v $PWD/.jupyter:/root/.jupyter "\
-              "-v $PWD:/host"
-    fab.run("docker run {volumes} -w=/host -p 8888:8888 -d -i "\
-            "--name notebook kaggle/python".format(**locals()))
-    fab.run("docker exec notebook python basics/pathconfig.py")
-    fab.run("docker exec -d notebook jupyter notebook")
-
-def restart_meetup():
-    fab.run("docker rm -f meetup || true")
-    fab.run("docker run -v $PWD:/host -w=/host -d -i "\
-                "--name meetup kaggle/python")
-    fab.run("docker exec meetup python basics/pathconfig.py")
-    # need -d otherwise fabric waits for finish
-    fab.run("docker exec -d meetup python meetup/meetup.py")
