@@ -15,6 +15,7 @@ import pandas as pd
 from _creds import notebook as nbpassword
 from notebook.auth import passwd
 import fabric.api as fab
+from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
 
 # fabric parameters
@@ -29,14 +30,16 @@ getgit = "if cd {project}; then git pull; else git clone"\
 
 def install_base():
     # docker and docker-compose
-    fab.sudo("yum install docker")
-    url = "https://github.com/docker/compose/releases/download/\
-        1.9.0/docker-compose-$(uname -s)-$(uname -m)"
-    fab.run("curl -L %s -o /usr/local/bin/docker-compose"%url)
+    fab.sudo("yum install docker -y")
+    url = "https://github.com/docker/compose/releases/download/"\
+            "1.9.0/docker-compose-$(uname -s)-$(uname -m)"
+    fab.sudo("curl -L %s -o /usr/local/bin/docker-compose"%url)
     fab.sudo("chmod +x /usr/local/bin/docker-compose")
 
     # other
     fab.sudo("yum install git -y")
+    fab.sudo("usermod -aG docker $(whoami)")
+    connections.connect(fab.env.host_string)
     fab.run("docker pull kaggle/python")
     
 def install_wordpress():
@@ -45,32 +48,15 @@ def install_wordpress():
     with fab.cd("wordpress"):
         fab.run("docker-compose up -d")
         
-def install_projects(projects=["basics", "analysis", "meetup"],
-                    source="client"):
-    """ copies source from client or github """
+def install_projects(projects=["basics", "analysis", "meetup"]):
+    """ installs python projects from github """
         
     # get git controlled files from laptop
-    for project in projects: 
-        # WARNING DELETING BASED ON PARAMETER IS POTENTIALLY UNSAFE
-        # fab.run("rm -r %s"%project)
-        
+    for project in projects:
         fab.run("mkdir %s || true"%project)
-        
-        if source == "client":
-            # get source from laptop (only git controlled files)
-            with fab.lcd(os.path.join(here, os.pardir, project)):
-                fab.local("git archive HEAD > %s.tar"%project)
-                fab.put("%s.tar"%project)
-            fab.run("tar xf {project}.tar -C {project}".format(**locals()))
-            fab.run("rm %s.tar"%project)
-        elif source == "github":
-            # get source from git (includes full repo. not needed for docker)
-            fab.run(getgit.format(project=project))
-        else:
-            log.exception("Source must be client or github")
-            sys.exit()
-    
-    # required files excluded from git archive
+        fab.run(getgit.format(project=project))
+            
+    # meetup creds (not git controlled)
     if "meetup" in projects:
         fab.put(os.path.join(here, os.pardir, project, 
                              "_creds.py"), project)
@@ -85,7 +71,8 @@ def install_projects(projects=["basics", "analysis", "meetup"],
 ### running ###########################################################
 
 def gettasks(target="python"):
-    """ returns dataframe of running tasks matching target inside containers
+    """ returns dataframe of running tasks inside containers
+        where task contains target string
     """
     containers = fab.run("docker inspect --format='{{.Name}}' "\
                          "$(docker ps -q)").splitlines()
@@ -115,7 +102,7 @@ def restart_notebook():
 
 def restart_meetup():
     fab.run("docker rm -f meetup || true")
-    fab.run("docker run -v $PWD:/host -w=/host -d -i "\
+    fab.run("docker run -v $PWD:/v1 -w=/v1 -d -i "\
                 "--name meetup kaggle/python")
     fab.run("docker exec meetup python basics/pathconfig.py")
     fab.run("docker exec -d meetup python meetup/meetup.py")
