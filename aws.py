@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 collection of functions for managing AWS
-    create key, security group and server
+    create key, security group, server, ip address
     various tools
     
 manual steps before running scripts
@@ -11,7 +11,6 @@ manual steps before running scripts
 """
 import logging as log
 import pandas as pd
-from IPython.display import display as d
 import boto3
 import os
 
@@ -19,6 +18,7 @@ import os
 
 user = 'ec2-user'
 keyfile = os.path.join(os.path.expanduser("~"), ".aws", "key.pem")
+
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
@@ -44,59 +44,69 @@ def create_securityGroup():
                          dict(IpProtocol='tcp', FromPort=22, ToPort=22)])
     return sec
 
-def create_server(image_id="ami-c51e3eb6", servertype="free", disksize=15):
+def create_server(image_id="ami-c51e3eb6", servertype="free", disksize=30):
     """ create instance using ami for amazon linux """
     servers = dict(free="t2.micro", gpu="p2.xlarge")
-    instances = ec2.create_instances(
-                        ImageId=image_id,
+    launch_spec = dict(ImageId=image_id,
                         MinCount=1, MaxCount=1, 
                         InstanceType=servers[servertype], 
                         SecurityGroups=["simon"],
                         KeyName="key",
-                        BlockDeviceMappings=[dict(DeviceName="/dev/xvda", 
-                                             Ebs=dict(VolumeSize=disksize))])
+                        BlockDeviceMappings=
+                                [dict(DeviceName="/dev/xvda", 
+                                 Ebs=dict(VolumeSize=disksize))])
+    if servertype == "free":
+        instances = ec2.create_instances(**launch_spec)
+    elif servertype =="gpu":
+        instances = client.request_spot_instances(DryRun=True, 
+                                                  launch_spec=launch_spec)
+    setName(instances[0])
     instances[0].wait_until_running()
     return instances[0]
 
 def create_staticIP(instancename):
     """ create a new elastic IP address and assigns to instance """
-    client = boto3.client("ec2")
-    id = getRes(instancename, ec2.instances).id
-    ip = client.allocate_address()["PublicIp"]
-    client.associate_address(InstanceId=id, PublicIp=ip)
+    elasticip = client.allocate_address()
+    client.associate_address(InstanceId=getId(instancename),
+                             PublicIp=elasticip["PublicIp"])
 
-def create_gpu(instance_name):
-    """ copy server to ami and creates new server on gpu """
-    id = getRes(instance_name, ec2.instances).id
-    image_id = client.create_image(InstanceId=id, Name="ami1")
-    return create_server(image_id, "gpu", 30)
+def create_ami(instancename):
+    """ copy server to ami """
+    return client.create_image(InstanceId=getId(instancename), 
+                               Name="ami1")
     
 ### tools ##############################################################
 
-def show():
+def getInstances():
     """ show list of instances """
     a=[]
     for i in ec2.instances.all():
         a.append([getName(i), i.instance_id, i.image.image_id,
                   i.instance_type, i.state["Name"],
                   i.public_ip_address])
-    d(pd.DataFrame(a, columns=["name", "instance_id","image","type","state","ip"]))
+    return pd.DataFrame(a, columns=["name", "instance_id","image","type",
+                                       "state","ip"])
+
+def setName(instance, name=None):
+    """ sets unique name of an instance """
+    if not name:
+        instances = getInstances()
+        namecount = 0
+        while True:
+            name = "sm"+str(namecount)
+            if name not in list(instances.name):
+                break
+    instance.create_tags(Tags=[dict(Key="Name", Value=name)])
     
-def getName(resource):
-    """ get name from resource """
+def getName(instance):
     try:
-        # security group
-        return resource.group_name
+        tags = {tag["Key"]:tag["Value"] for tag in instance.tags}
+        return tags["Name"]
     except:
-        # instance
-        try:
-            tags = {tag["Key"]:tag["Value"] for tag in resource.tags}
-            return tags["Name"]
-        except:
-            return "unknown"
+        return "unknown"
             
-def getRes(name, collection):
+def getId(name, collection=ec2.instances):
     """ get resource by name """
     for i in collection.all():
         if name == getName(i):
-            return i
+            return i.id
