@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 """
 collection of functions for managing AWS
-    create key, security group, server, ip address
+    create key, security group, server
     various tools
     
-manual steps before running scripts
+manual steps
     create AWS account
     create config and credentials on local client
-    request gpu access
+    request gpu limit increase
+    create pdata volume and upload data
+
+optional
+    create elastic ip address
+    assign ip address to servers as required
 """
 import logging as log
 import pandas as pd
@@ -16,8 +21,22 @@ import os
 
 ### parameters ####################################################
 
-user = 'ec2-user'
 keyfile = os.path.join(os.path.expanduser("~"), ".aws", "key.pem")
+
+specs=dict()
+
+# amazon deep learning = "ami-cb97d5b8"
+# fastai = "ami-b43d1ec7"
+
+# amazon linux
+base_spec = dict(ImageId="ami-c51e3eb6",
+                InstanceType="t2.micro", 
+                SecurityGroups=["simon"],
+                KeyName="key",
+                MinCount=1, MaxCount=1,
+                BlockDeviceMappings=[])
+
+gpu_type = "p2.xlarge"
 
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
@@ -44,36 +63,58 @@ def create_securityGroup():
                          dict(IpProtocol='tcp', FromPort=22, ToPort=22)])
     return sec
 
-def create_server(image_id="ami-c51e3eb6", servertype="free", disksize=30):
-    """ create instance using ami for amazon linux """
-    servers = dict(free="t2.micro", gpu="p2.xlarge")
-    launch_spec = dict(ImageId=image_id,
-                        MinCount=1, MaxCount=1, 
-                        InstanceType=servers[servertype], 
-                        SecurityGroups=["simon"],
-                        KeyName="key",
-                        BlockDeviceMappings=
-                                [dict(DeviceName="/dev/xvda", 
-                                 Ebs=dict(VolumeSize=disksize))])
-    if servertype == "free":
-        instances = ec2.create_instances(**launch_spec)
-    elif servertype =="gpu":
-        instances = client.request_spot_instances(DryRun=True, 
-                                                  launch_spec=launch_spec)
-    setName(instances[0])
-    instances[0].wait_until_running()
-    return instances[0]
+def create_instance(rootsize=None, gpu=False, data=False, spot=False):
+    """ create main types of instance needed for deep learning
+    
+        rootsize=size of root volume
+        gpu=use gpu OR t2.micro
+        data=attach pdata snapshot OR not
+        spot=use spot OR on-demand
+    """
+    spec = base_spec.copy()
+    
+    # set size of root volume
+    if rootsize:
+        bdm = dict(DeviceName="/dev/xvda",
+                   Ebs=dict(VolumeType="gp2",
+                           VolumeSize=rootsize))
+        spec["BlockDeviceMappings"].append(bdm)
+        
+    # processor
+    if gpu:
+        spec.update(InstanceType=gpu_type)
+    
+    # data volume
+    if data:
+        vol = getResource("pdata", ec2.volumes)
+        if vol:
+            raise "volume already exists. manually request instance "\
+                    "and attach volume"
+        # attach latest snapshot at launch
+        snapshots = getResources("pdata", ec2.snapshots)
+        latest = sorted(snapshots, key=lambda s:s.start_time, reverse=True)[0]
+        
+        bdm = dict(DeviceName="/dev/xvdf",
+                   Ebs=dict(SnapshotId=latest.id,
+                            DeleteOnTermination=False,
+                            VolumeType="gp2"))
+        spec["BlockDeviceMappings"].append(bdm)
 
-def create_staticIP(instancename):
-    """ create a new elastic IP address and assigns to instance """
-    elasticip = client.allocate_address()
-    client.associate_address(InstanceId=getId(instancename),
-                             PublicIp=elasticip["PublicIp"])
-
-def create_ami(instancename):
-    """ copy server to ami """
-    return client.create_image(InstanceId=getId(instancename), 
-                               Name="ami1")
+    # spot
+    if spot:
+        del spec["MinCount"]
+        del spec["MaxCount"]
+        log.info("spot instance has been requested")
+        return client.request_spot_instances(
+                    DryRun=False, SpotPrice=".5", **spec)[0]
+    # on-demand
+    else:
+        r = ec2.create_instances(**spec)[0]
+        setName(r)
+        log.info("instance requested. waiting for start")
+        r.wait_until_running()
+        log.info("instance started")
+        return r
     
 ### tools ##############################################################
 
@@ -86,7 +127,7 @@ def getInstances():
                   i.public_ip_address])
     return pd.DataFrame(a, columns=["name", "instance_id","image","type",
                                        "state","ip"])
-
+    
 def setName(instance, name=None):
     """ sets unique name of an instance """
     if not name:
@@ -96,6 +137,7 @@ def setName(instance, name=None):
             name = "sm"+str(namecount)
             if name not in list(instances.name):
                 break
+            namecount += 1
     instance.create_tags(Tags=[dict(Key="Name", Value=name)])
     
 def getName(instance):
@@ -104,9 +146,44 @@ def getName(instance):
         return tags["Name"]
     except:
         return "unknown"
-            
-def getId(name, collection=ec2.instances):
-    """ get resource by name """
-    for i in collection.all():
-        if name == getName(i):
-            return i.id
+
+def tagdict(tags):
+    """ convert tags to dict """
+    tags = tags or dict()
+    return {tag["Key"]:tag["Value"] for tag in tags}
+    
+def getResources(values, collections=None):
+    """ gets list of resources by tag value
+        values and collections can be item or list
+    """
+    if collections is None:
+        collections = [ec2.instances, ec2.volumes, ec2.snapshots]
+    
+    if not isinstance(values, list):
+        values = [values]
+    if not isinstance(collections, list):
+        collections = [collections]
+    r = []
+    for collection in collections:
+        try:
+            # snapshots collection includes the worlds snapshots!
+            owned = list(collection.all().filter(OwnerIds=["self"]))
+        except:
+            owned = list(collection.all())
+        for res in owned:
+            tags = tagdict(res.tags)
+            if len(set(values) & set(tags.values())) > 0:
+                r.append(res)
+    return r
+
+def getResource(values, collections=None):
+    """ gets unique resource with tag value """
+    r = getResources(values, collections)
+    if len(r) == 0:
+        return None
+    if len(r) > 1:
+        raise Exception("More than one resource found:\n%s"%r)
+    return r[0]
+
+def getIps():   
+    return [ip["PublicIp"] for ip in client.describe_addresses()["Addresses"]]
