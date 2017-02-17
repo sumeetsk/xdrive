@@ -12,15 +12,11 @@ class Pdrive():
     
     FUNCTION::
         
-        enables persistent data
-            training data can be reused on future instance
-            model state can be saved to Pdrive periodically e.g. each epoch
-            
-        enables persistent program settings
-            docker runs on boot volume; images/containers are stored on Pdrive
-            on instance termination Pdrive saves to snapshot
-            [MANUAL CURRENTLY. DOES NOT DETECT AWS INITIATED SHUTDOWN]
-            
+        enables persistent data for spot instances
+            training data
+            model state (can be saved periodically e.g. each epoch)
+            docker database of images and containers (all program settings)
+
         can be used in parallel with AWS menus. only retained state is name.
             
     USAGE::
@@ -30,7 +26,7 @@ class Pdrive():
             fab.env.host_string = "<ipaddress>"
         
         new instance
-            create instance with pdrive:
+            create instance with optional pdrive:
                 itools.create(name, bootsize=None, itype="free", spot=False,
                               pdrivename=None, pdrivesize=10)
                 start containers as required
@@ -54,6 +50,11 @@ class Pdrive():
                 apps.set_docker_folder()
             
     NOTES::
+        
+        physical storage
+            boot volume runs docker
+            attached volume holds docker database and program data
+            on termination attached volume saved to snapshot
             
         reasons for use of snapshots
             cheaper storage
@@ -63,6 +64,7 @@ class Pdrive():
         assumptions
             only one external volume which will be mounted as /v1
             volume name is unique (snapshot name is reused)
+            termination must be requested (does not detect amazon requests)
             snapshots must be deleted manually
     """
     default = dict(Size=10, VolumeType="gp2")        
@@ -177,6 +179,8 @@ class Pdrive():
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         snap = aws.ec2.create_snapshot(VolumeId=volume.id)
         aws.set_name(snap, self.name)
+        log.info("waiting for snapshot. this can take 15 minutes."\
+                     "you can break and then delete volume manually")
         snap.wait_until_completed()
         log.info("snapshot completed")
         
@@ -203,6 +207,15 @@ class Pdrive():
             return snapshots[0]
         log.warning("no snapshots found")
         
+    def create_kaggle(project):
+        """ configure new kaggle project """
+        # manually on website accept T&Cs for competition
+        fab.run("mkdir /v1/%s"%project)
+        with fab.cd("cd /v1/%s"%project):
+            fab.run("cp ~/.kaggle-cli")
+            fab.run("kg config -c %s"%project)
+            fab.run("kg download")
+
 ########### no longer needed ???? #############################        
         
     def create(self, instance, **params):

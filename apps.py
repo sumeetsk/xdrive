@@ -11,8 +11,9 @@ import logging as log
 import os
 import io
 
-from _creds import notebook as nbpassword
 from notebook.auth import passwd
+from _creds import notebook
+from _creds import kaggle
 import fabric.api as fab
 from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
@@ -78,11 +79,23 @@ def install_wordpress():
     fab.put("wordpress/docker-compose.yml", "wordpress")
     with fab.cd("wordpress"):
         fab.run("docker-compose up -d")
+
+def install_miniconda():
+    fab.run("wget https://repo.continuum.io/miniconda/"\
+                "Miniconda3-latest-Linux-x86_64.sh")
+    fab.run("bash Miniconda3-latest-Linux-x86_64.sh")
+    
+def install_kaggle():
+    with fab.cd("/v1"):
+        fab.run("pip install kaggle-cli")
+        fab.run("kg config -u %s -p %s"% \
+                    (kaggle["user"], kaggle["password"]))
         
 def install_notebook():
     with open("jupyter/jupyter_notebook_config.py") as f:
         config = f.read()
-    config = config + "\nc.NotebookApp.password='%s'"%passwd(nbpassword)
+    config = config + "\nc.NotebookApp.password='%s'"\
+                                %passwd(notebook["password"])
     fab.run('mkdir .jupyter || true')
     fab.put(io.StringIO(config) , ".jupyter/jupyter_notebook_config.py")
         
@@ -96,8 +109,11 @@ def install_github(user, projects):
         fab.run(getgit.format(user=user, project=project))
 
         # creds (not git controlled)
-        fab.put(os.path.join(here, os.pardir, project,
+        try:
+            fab.put(os.path.join(here, os.pardir, project,
                              "_creds.py"), project)
+        except:
+            pass
 
 ### running ###########################################################
 
@@ -108,6 +124,7 @@ def restart_python(project):
                     "--name {project} python".format(**locals()))
     fab.run("docker exec {project} python " \
                 "basics/pathconfig.py".format(**locals()))
+    fab.run("docker exec {project} pip install requests".format(**locals()))
     fab.run("docker exec -d {project} python "\
                 "{project}/{project}.py".format(**locals()))
 
@@ -121,12 +138,5 @@ def restart_notebook():
     fab.sudo("docker run {volumes} -w=/host -p 8888:8888 -d -i "\
              "-u root "\
              "--name notebook deeprig/fastai-course-1".format(**locals()))
-    #fab.run("docker exec notebook python basics/pathconfig.py")
+    fab.run("docker exec notebook python basics/pathconfig.py")
     #fab.sudo("docker exec -d notebook jupyter notebook")
-
-def restart_meetup():
-    fab.run("docker rm -f meetup || true")
-    fab.run("docker run -v /$HOME:/host -w=/host -d -i "\
-                "--name meetup kaggle/python")
-    fab.run("docker exec meetup python basics/pathconfig.py")
-    fab.run("docker exec -d meetup python meetup/meetup.py")

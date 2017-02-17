@@ -32,7 +32,7 @@ base_spec = dict(ImageId="ami-c51e3eb6",
 # amazon linux = "ami-c51e3eb6"
     
 def create(name, bootsize=None, itype="free", spot=False,
-                    pdrivename=None, pdrivesize=10):
+                            pdrive=None, pdrivesize=10):
     """ create main types of instance needed for deep learning
     
         name = name of instance
@@ -43,6 +43,11 @@ def create(name, bootsize=None, itype="free", spot=False,
         pdrive = name of attached, non-boot drive
         spot = use spot. default is on-demand
     """
+    if aws.get(name, aws.ec2.instances):
+        raise("instance %s already exists"%name)
+    if isinstance(pdrive, str):
+        pdrive = Pdrive(pdrive)
+    
     spec = base_spec.copy()
     
     # size of root volume
@@ -56,8 +61,7 @@ def create(name, bootsize=None, itype="free", spot=False,
     spec.update(InstanceType=itypes[itype])
     
     # if persistent volume then add to instance launch
-    if pdrivename:
-        pdrive = Pdrive(pdrivename)
+    if pdrive:
         latest_snapshot = pdrive.latest_snapshot()
         if latest_snapshot:
             latest_snapshot = latest_snapshot.id
@@ -90,11 +94,12 @@ def create(name, bootsize=None, itype="free", spot=False,
     fab.env.host_string = instance.public_ip_address
     
     # prepare pdrive
-    if pdrivename:
+    if pdrive:
         # set name
         for vol in instance.block_device_mappings:
             if vol["DeviceName"] == "/dev/xvdf":
-                aws.set_name(aws.ec2.Volume(vol["Ebs"]["VolumeId"]), "cats")
+                aws.set_name(aws.ec2.Volume(vol["Ebs"]["VolumeId"]), 
+                                            pdrive.name)
                 break
             
         # format and mount
@@ -107,7 +112,7 @@ def create(name, bootsize=None, itype="free", spot=False,
     
     return instance
  
-def create_spot(self, spec):
+def create_spot(spec):
     """ returns a spot instance
     NOTE to autobid without spotprice then have to use AWS browser console
     """
@@ -115,13 +120,14 @@ def create_spot(self, spec):
     del spec["MaxCount"]
     requestId = aws.client.request_spot_instances(
                      DryRun=False,
-                     SpotPrice=self.spotprice,
+                     SpotPrice=spotprice,
                      LaunchSpecification=spec) \
+                    ["SpotInstanceRequests"] \
                     [0]['SpotInstanceRequestId']
     log.info("spot request submitted")
     
     # wait until fulfilled
-    aws.client.get_waiter.SpotInstanceRequestFulfilled() \
+    aws.client.get_waiter("spot_instance_request_fulfilled") \
                         .wait(SpotInstanceRequestIds=[requestId])
     instanceId = aws.client.describe_spot_instance_requests \
                     (SpotInstanceRequestIds=[requestId]) \
@@ -130,16 +136,18 @@ def create_spot(self, spec):
     log.info("spot request fulfilled")
     return aws.ec2.Instance(instanceId)
     
-def create_wordpress_server():
+def create_static_server():
     """ creates instance with static ip address """
-    instance = create()
+    instance = create("sm1")
     fab.env.host_string = aws.get_ips()[0]
     aws.client.associate_address(InstanceId=instance.instance_id,
                                  PublicIp=fab.env.host_string)
     wait_ssh()
     apps.install_docker()
     apps.install_wordpress()
-    
+    apps.install_miniconda()
+    apps.install_kaggle()
+
 def wait_ssh():
     """ wait for successfull ssh connection """
     while True:

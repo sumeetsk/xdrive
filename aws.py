@@ -8,17 +8,10 @@ manage aws resources
 NOTE: This is a set of functions not a class
     
 manual steps
-    create AWS account
-    create config and credentials on local client
-    request gpu limit increase
-    
-    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    bash Miniconda3-latest-Linux-x86_64.sh
-    exit/login
-    pip install kaggle-cli
-    kg config -u simonm3@gmail.com -p <password>
-    kg config -c dogs-vs-cats-redux-kernels-edition
-    kg download
+    setup account    
+        create AWS account
+        create config and credentials on local client
+        request gpu limit increase
 """
 import logging as log
 import pandas as pd
@@ -77,8 +70,8 @@ def set_name(res, value):
     set_tag(res, "Name", value)
 
 def get(name=None, collections=None, unique=True):
-    """ gets resource by name
-        if unique=false then gets all resources with name
+    """ get resources with name=name
+        if unique=True then raise exception if more than one
         if name=None then gets all resources
         collections can be collection or list of collections
         collections=None returns instances, volumes, snapshots
@@ -97,10 +90,9 @@ def get(name=None, collections=None, unique=True):
             owned = list(collection.all().filter(OwnerIds=["self"]))
         except:
             owned = list(collection.all())
-        for res in owned:
-            if name is None or name == get_name(res):
-                reslist.append(res)
-    
+        reslist.extend([res for res in owned if name is None 
+                               or name == get_name(res)])
+    # cleanup outputs
     if len(reslist) == 0:
         return None
     if unique:
@@ -124,44 +116,3 @@ def get_instances():
 def get_ips():
     """ get list of elastic ips """
     return [ip["PublicIp"] for ip in client.describe_addresses()["Addresses"]]
-    
-### No longer required???? ###########################################
-    
-#def get_resources(tagvalues=None, collections=None):
-#    """ gets list of resources by tag value (ignores tag key)
-#        tagvalues and collections can be item or list
-#        tagvalues=None returns all resources
-#        collections=None returns instances, volumes, snapshots
-#    """
-#    # cleanup inputs
-#    if collections is None:
-#        collections = [ec2.instances, ec2.volumes, ec2.snapshots]
-#    if tagvalues and not isinstance(tagvalues, list):
-#        tagvalues = [tagvalues]
-#    if not isinstance(collections, list):
-#        collections = [collections]
-#    # get tagvalues
-#    reslist = []
-#    for collection in collections:
-#        try:
-#            # snapshots collection includes the worlds snapshots!
-#            owned = list(collection.all().filter(OwnerIds=["self"]))
-#        except:
-#            owned = list(collection.all())
-#        for res in owned:
-#            tags = get_tags(res)
-#            if tagvalues is None:
-#                reslist.append(res)
-#            elif len(set(tagvalues) & set(tags.values())) > 0:
-#                reslist.append(res)
-#    return reslist
-#
-#def get_resource(tagvalues, collections=None):
-#    """ gets unique resource with tag value """
-#    r = get_resources(tagvalues, collections)
-#    if len(r) == 0:
-#        return None
-#    if len(r) > 1:
-#        raise Exception("More than one resource found:\n%s"%r)
-#    return r[0]
-   
