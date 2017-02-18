@@ -11,28 +11,10 @@ import apps
 import fabric.api as fab
 from time import sleep
 import pandas as pd
-
-# add others as needed
-itypes = dict(gpu="p2.xlarge", free="t2.micro")
-
-# what is best setting for this????
-spotprice = ".5"
-
-#### amazon linux 8GB boot volume
-base_spec = dict(ImageId="ami-c51e3eb6",
-                InstanceType=itypes["free"], 
-                SecurityGroups=["simon"],
-                KeyName="key",
-                MinCount=1, MaxCount=1,
-                BlockDeviceMappings=[])
-
-#### alternative AMIs
-# amazon deep learning = "ami-cb97d5b8"
-# fastai = "ami-b43d1ec7"
-# amazon linux = "ami-c51e3eb6"
+from config import itypes, amis, spotprice, base_spec, user
     
 def create(name, bootsize=None, itype="free", spot=False,
-                            pdrive=None, pdrivesize=10):
+                            pdrive=None, pdrivesize=10, docker="/v1"):
     """ create main types of instance needed for deep learning
     
         name = name of instance
@@ -44,7 +26,7 @@ def create(name, bootsize=None, itype="free", spot=False,
         spot = use spot. default is on-demand
     """
     if aws.get(name, aws.ec2.instances):
-        raise("instance %s already exists"%name)
+        raise Exception("instance %s already exists"%name)
     if isinstance(pdrive, str):
         pdrive = Pdrive(pdrive)
     
@@ -58,7 +40,8 @@ def create(name, bootsize=None, itype="free", spot=False,
         spec["BlockDeviceMappings"].append(bdm)
         
     # instance type
-    spec.update(InstanceType=itypes[itype])
+    spec.update(InstanceType=itypes[itype],
+                ImageId=amis[itype])
     
     # if persistent volume then add to instance launch
     if pdrive:
@@ -71,14 +54,14 @@ def create(name, bootsize=None, itype="free", spot=False,
                             VolumeType="gp2",
                             VolumeSize=pdrivesize))
         spec["BlockDeviceMappings"].append(bdm)
-
+        
     # spot or on-demand
     if spot:
         instance = create_spot(spec)
     else:
         instance = aws.ec2.create_instances(**spec)[0]
     
-    log.info("instance pending")
+    log.info("waiting for instance running")
     instance.wait_until_running()    
     aws.set_name(instance, name)
     
@@ -92,6 +75,7 @@ def create(name, bootsize=None, itype="free", spot=False,
     log.info("instance %s running at %s"%(name, instance.public_ip_address))
     
     fab.env.host_string = instance.public_ip_address
+    fab.env.user = user
     
     # prepare pdrive
     if pdrive:
@@ -109,6 +93,9 @@ def create(name, bootsize=None, itype="free", spot=False,
         pdrive.mount()
     
     apps.install_docker()
+    if itype=="gpu":
+        apps.install_nvidia()
+    apps.set_docker_folder(docker)
     
     return instance
  
@@ -126,9 +113,16 @@ def create_spot(spec):
                     [0]['SpotInstanceRequestId']
     log.info("spot request submitted")
     
+    # AWS bug. sometimes gives a requestId but the waiter says it does not exist
+    while True:
+        try:
+            aws.client.get_waiter("spot_instance_request_fulfilled") \
+                                .wait(SpotInstanceRequestIds=[requestId])
+            break
+        except:
+            sleep(1)
+
     # wait until fulfilled
-    aws.client.get_waiter("spot_instance_request_fulfilled") \
-                        .wait(SpotInstanceRequestIds=[requestId])
     instanceId = aws.client.describe_spot_instance_requests \
                     (SpotInstanceRequestIds=[requestId]) \
                     ['SpotInstanceRequests'][0] \
@@ -140,6 +134,7 @@ def create_static_server():
     """ creates instance with static ip address """
     instance = create("sm1")
     fab.env.host_string = aws.get_ips()[0]
+    fab.env.user = user
     aws.client.associate_address(InstanceId=instance.instance_id,
                                  PublicIp=fab.env.host_string)
     wait_ssh()
@@ -150,19 +145,18 @@ def create_static_server():
 
 def wait_ssh():
     """ wait for successfull ssh connection """
+    log.info("waiting for ssh")
     while True:
         with fab.quiet():
             try:
-                r = fab.sudo("ls")
-                if r.succeeded:
-                    break
+                fab.sudo("ls")
+                break
             except:
-                log.warning("SHOULD THIS HAPPEN???")
-            log.info("waiting for ssh")
+                pass
         sleep(1)
-    log.info("connected")
+    log.info("ssh connected")
 
-def terminate(instance):
+def terminate(instance, save_pdrive=True):
     """ terminate instance and save pdrive as snapshot """
     if isinstance(instance, str):
         instance = aws.get(instance)
@@ -182,7 +176,11 @@ def terminate(instance):
     # note no need for separate detach step
     instance.terminate()
     log.info("instance terminated")
-    pdrive.create_snapshot()
+
+    if save_pdrive:
+        pdrive.create_snapshot()
+    
+    pdrive.delete_volume()
      
 def get_tasks(target="python"):
     """ returns dataframe of tasks running inside docker containers
