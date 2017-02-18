@@ -11,17 +11,13 @@ import logging as log
 import os
 import io
 
+from config import keyfile, here
 from notebook.auth import passwd
-from _creds import notebook
-from _creds import kaggle
+from _creds import notebook, kaggle
 import fabric.api as fab
 from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
-
-# parameters
-fab.env.key_filename = os.path.join(os.path.expanduser("~"), ".aws", "key.pem")
-
-here = os.path.dirname(os.path.abspath(__file__))
+fab.env.key_filename = keyfile
 
 ### install ####################################################
 
@@ -38,18 +34,27 @@ def install_docker():
             "1.9.0/docker-compose-$(uname -s)-$(uname -m)"
     fab.sudo("curl -L %s -o /usr/local/bin/docker-compose"%url)
     fab.sudo("chmod +x /usr/local/bin/docker-compose")
+    log.info("docker installed. if need to pull images then use ssh "\
+             "as this shows progress whereas fabric does not")
 
-    log.info("docker installed. ready to ssh pull kaggle/python or other")
-
+def install_nvidia():
+    # nvidia docker (NOTE: use instructions for "other" NOT "centos")
+    fab.sudo("wget -P /tmp https://github.com/NVIDIA/nvidia-docker/releases/"\
+            "download/v1.0.0/nvidia-docker_1.0.0_amd64.tar.xz")
+    fab.sudo("tar --strip-components=1 -C "\
+            "/usr/bin -xvf /tmp/nvidia-docker*.tar.xz "\
+            "&& rm /tmp/nvidia-docker*.tar.xz")
+    # NOTE fab.run used as fab.sudo command does not accept -b option
+    # -b for background. nohup for run forever.
+    fab.run("sudo -b nohup nvidia-docker-plugin")
+    log.info("nvidia-docker-plugin is running")
+    
 def set_docker_folder(folder="/var/lib"):
     """ set location of docker images and containers
     for pdata volume is /v1
     """
     with fab.quiet():
-        try:
-            fab.sudo("service docker stop")
-        except:
-            pass
+        fab.sudo("service docker stop")
     
     # create daemon.json settings
     with open("docker/daemon.json", "w") as f:
@@ -133,10 +138,13 @@ def restart_notebook():
         note: -d=daemon so task returns. -i=keep alive.
     """
     fab.run("docker rm -f notebook || true")
+    docker = "nvidia-docker" if fab.sudo("nvidia-smi").succeeded \
+                    else "docker"
+    
     volumes = "-v /v1:/root "\
               "-v /v1:/host"
-    fab.sudo("docker run {volumes} -w=/host -p 8888:8888 -d -i "\
+    fab.sudo("{docker} run {volumes} -w=/host -p 8888:8888 -d -i "\
              "-u root "\
-             "--name notebook deeprig/fastai-course-1".format(**locals()))
-    fab.run("docker exec notebook python basics/pathconfig.py")
-    #fab.sudo("docker exec -d notebook jupyter notebook")
+             "--name notebook simoneva/fastai7".format(**locals()))
+    with fab.quiet():
+        fab.run("docker exec notebook python basics/pathconfig.py")
