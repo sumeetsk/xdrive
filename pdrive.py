@@ -6,66 +6,10 @@ import fabric.api as fab
 from time import sleep
 import json
 import apps
+from config import user
 
 class Pdrive():
     """ persistent storage for use with spot instances
-    
-    FUNCTION::
-        
-        enables persistent data for spot instances
-            training data
-            model state (can be saved periodically e.g. each epoch)
-            docker database of images and containers (all program settings)
-
-        can be used in parallel with AWS menus. only retained state is name.
-            
-    USAGE::
-        
-        initialise fabric before calling instance functions
-            fab.env.user = "ec2-user"
-            fab.env.host_string = "<ipaddress>"
-        
-        new instance
-            create instance with optional pdrive:
-                itools.create(name, bootsize=None, itype="free", spot=False,
-                              pdrivename=None, pdrivesize=10)
-                start containers as required
-                
-            terminate instance with pdrive:
-                itools.terminate(instance/name)
-
-        existing instance
-            connect pdrive
-                pdrive.connect(instance/name)
-                start docker and containers as required
-                
-            shutdown pdrive cleanly
-                pdrive.disconnect()
-                
-        set docker location
-            to pdrive volume (default when instance/pdrive created together)
-                apps.set_docker_folder("/v1")
-               
-            to boot volume (default when instance created without pdrive)
-                apps.set_docker_folder()
-            
-    NOTES::
-        
-        physical storage
-            boot volume runs docker
-            attached volume holds docker database and program data
-            on termination attached volume saved to snapshot
-            
-        reasons for use of snapshots
-            cheaper storage
-            can be mounted when instance created (volume cannot)
-            can be attached in any availability_zone (volume is single zone)
-            
-        assumptions
-            only one external volume which will be mounted as /v1
-            volume name is unique (snapshot name is reused)
-            termination must be requested (does not detect amazon requests)
-            snapshots must be deleted manually
     """
     default = dict(Size=10, VolumeType="gp2")        
     
@@ -79,7 +23,7 @@ class Pdrive():
         self.diskformat()
         self.mount()
         
-    def disconnect(self):
+    def disconnect(self, save=True):
         """ disconnect cleanly and save to snapshot """
         # stop docker on pdrive
         with fab.quiet():
@@ -91,7 +35,9 @@ class Pdrive():
                 apps.stop_docker()
         self.unmount()
         self.detach()
-        self.create_snapshot()
+        if save:
+            self.create_snapshot()
+        self.delete_volume()
         
 ######## lower level functions ############################
         
@@ -99,7 +45,9 @@ class Pdrive():
         """ attach volume or snapshot """
         if isinstance(instance, str):
             instance = aws.get(instance, collections=aws.ec2.instances)
+
         fab.env.host_string = instance.public_ip_address
+        fab.env.user = user
         
         volume = aws.get(self.name, collections=aws.ec2.volumes)
 
@@ -132,11 +80,11 @@ class Pdrive():
         instance.attach_volume(VolumeId=volume.id, Device='/dev/xvdf')
         
         # wait until device usable.
+        log.info("waiting to attach volume")
         while True:
             with fab.quiet():
                 if fab.sudo("ls -l /dev/xvdf").succeeded:
                     break
-                log.info("waiting to attach volume")
             sleep(1)
         log.info("volume attached")
             
@@ -170,12 +118,8 @@ class Pdrive():
         except:
             log.warning("failed to detach volume")
             return
-        aws.client.get_waiter('volume_available').wait(VolumeIds=[volume.id])
-        log.info("volume available")
 
     def create_snapshot(self):
-        """ create snapshot; delete volume """
-        # create snapshot
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         snap = aws.ec2.create_snapshot(VolumeId=volume.id)
         aws.set_name(snap, self.name)
@@ -183,11 +127,15 @@ class Pdrive():
                      "you can break and then delete volume manually")
         snap.wait_until_completed()
         log.info("snapshot completed")
-        
+    
+    def delete_volume(self):
+        volume = aws.get(self.name, collections=aws.ec2.volumes)
+    
         # wait until available
+        log.info("waiting until volume available")
         aws.client.get_waiter('volume_available').wait(VolumeIds=[volume.id])
         log.info("volume available")
-    
+        
         # delete volume
         volume.delete()
         aws.client.get_waiter('volume_deleted').wait(VolumeIds=[volume.id])
@@ -215,33 +163,3 @@ class Pdrive():
             fab.run("cp ~/.kaggle-cli")
             fab.run("kg config -c %s"%project)
             fab.run("kg download")
-
-########### no longer needed ???? #############################        
-        
-    def create(self, instance, **params):
-        """ creates empty volume, attaches, mounts and formats
-        NOT NEEDED. instance_create is simpler
-        """
-        # check does not exist
-        if aws.get(self.name, collections=aws.ec2.volumes):
-            log.warning("Volume %s already exists"%self.name)
-            sys.exit()
-        if aws.get(self.name, collections=aws.ec2.snapshots, unique=False):
-            log.exception("Snapshot %s already exists"%self.name)
-            sys.exit()
-            
-        if isinstance(instance, str):
-            instance = aws.get(instance, aws.ec2.instances)
-        
-        # create volume
-        params2 = self.default.copy()
-        params2.update(AvailabilityZone=instance.placement["AvailabilityZone"])
-        params2.update(params)
-        volume = aws.ec2.create_volume(**params2)
-        aws.set_name(volume, self.name)
-        waiter = aws.client.get_waiter('volume_available')
-        waiter.wait(VolumeIds=[volume.id])
-        log.info("volume available")
-        
-        # attach and mount
-        self.attach(instance, formatdisk=True)
