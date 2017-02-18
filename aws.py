@@ -16,13 +16,7 @@ manual steps
 import logging as log
 import pandas as pd
 import boto3
-import os
-import fabric.api as fab
-log.getLogger("paramiko").setLevel(log.ERROR)
-
-### parameters ####################################################
-
-fab.env.key_filename = os.path.join(os.path.expanduser("~"), ".aws", "key.pem")
+from config import keyfile
 
 ### connection #############################################################
 
@@ -35,7 +29,7 @@ def create_key():
     """ creates keypair and saves private key to file """
     try:
         key = ec2.create_key_pair(KeyName="key")
-        with open(fab.env.key_filename, "w") as f:
+        with open(keyfile, "w") as f:
             f.write(key.key_material)
     except Exception as e:
         log.warning(e)
