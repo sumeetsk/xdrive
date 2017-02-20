@@ -93,9 +93,10 @@ def create(name, bootsize=None, itype="free", spot=False,
         pdrive.mount()
     
     apps.install_docker()
+    apps.set_docker_folder(docker)
+
     if itype=="gpu":
         apps.install_nvidia()
-    apps.set_docker_folder(docker)
     
     return instance
  
