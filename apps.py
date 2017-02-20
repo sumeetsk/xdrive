@@ -22,12 +22,10 @@ fab.env.key_filename = keyfile
 ### install ####################################################
 
 def install_docker():
+    # docker
     fab.sudo("yum install docker -y")
     fab.sudo("usermod -aG docker %s"%fab.env.user)
-    
-    # restart docker
-    fab.sudo("service docker start")
-    connections.connect(fab.env.host_string)
+    connections.connect(fab.env.host_string)    
     
     # docker compose
     url = "https://github.com/docker/compose/releases/download/"\
@@ -53,9 +51,6 @@ def set_docker_folder(folder="/var/lib"):
     """ set location of docker images and containers
     for pdata volume is /v1
     """
-    with fab.quiet():
-        fab.sudo("service docker stop")
-    
     # create daemon.json settings
     with open("docker/daemon.json", "w") as f:
         f.write('{"graph":"%s/docker"}'%folder)
@@ -63,7 +58,8 @@ def set_docker_folder(folder="/var/lib"):
     fab.put("docker/daemon.json", "/etc/docker", use_sudo=True)
     fab.sudo("mkdir -p %s/docker"%folder)
     
-    fab.sudo("service docker start")
+    with fab.quiet():
+        fab.sudo("service docker restart")
 
 def stop_docker():
     """ terminate all containers and stop docker """
@@ -72,13 +68,6 @@ def stop_docker():
         fab.sudo("service docker stop")
         log.info("docker stopped")
     
-def install_git():
-    fab.sudo("yum install git -y")
-    
-def install_py3():
-    fab.sudo("yum install python35 -y")
-    fab.run("echo 'alias python=python35' > .bashrc")
-
 def install_wordpress():
     fab.run("mkdir wordpress || true")
     fab.put("wordpress/docker-compose.yml", "wordpress")
@@ -122,9 +111,9 @@ def install_github(user, projects):
 
 ### running ###########################################################
 
-def restart_python(project):
+def run_python(project):
     """ runs python project from host folder in container """
-    fab.run("docker rm -f {project} || true".format(**locals()))
+    
     fab.run("docker run -v $HOME:/host -w=/host -d -i "\
                     "--name {project} python".format(**locals()))
     fab.run("docker exec {project} python " \
@@ -133,18 +122,19 @@ def restart_python(project):
     fab.run("docker exec -d {project} python "\
                 "{project}/{project}.py".format(**locals()))
 
-def restart_notebook():
-    """ terminates and restarts
+def run_notebook():
+    """ runs fastai notebook
         note: -d=daemon so task returns. -i=keep alive.
     """
-    fab.run("docker rm -f notebook || true")
     docker = "nvidia-docker" if fab.sudo("nvidia-smi").succeeded \
                     else "docker"
-    
-    volumes = "-v /v1:/root "\
+
+    # password on host. access to host.
+    volumes = "-v /v1/.jupyter:/root/.jupyter "\
               "-v /v1:/host"
-    fab.sudo("{docker} run {volumes} -w=/host -p 8888:8888 -d -i "\
+    # notebooks on host
+    fab.sudo("{docker} run {volumes} -w=/host/nbs -p 8888:8888 -d -i "\
              "-u root "\
              "--name notebook simoneva/fastai7".format(**locals()))
     with fab.quiet():
-        fab.run("docker exec notebook python basics/pathconfig.py")
+        fab.run("docker exec notebook python /host/basics/pathconfig.py")
