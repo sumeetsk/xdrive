@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import aws
 import logging as log
-import sys
 import fabric.api as fab
 from time import sleep
 import json
@@ -61,8 +60,8 @@ class Pdrive():
             # create volume from snapshot
             snapshot = self.latest_snapshot()
             if snapshot is None:
-                log.exception("No volume or snapshot found for %s"%self.name)
-                sys.exit()
+                raise Exception("No volume or snapshot found "
+                                            "for %s"%self.name)
             r = aws.client.create_volume(
                     SnapshotId=snapshot.id,
                     AvailabilityZone=instance.placement["AvailabilityZone"],
@@ -145,8 +144,7 @@ class Pdrive():
         """ returns most recent snapshot """  
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         if volume:
-            log.warning("cannot get snapshot as volume exists")
-            sys.exit()
+            raise Exception("cannot get snapshot as volume exists")
         snapshots = aws.get(self.name, collections=aws.ec2.snapshots, 
                             unique=False)
         if snapshots:
