@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 manage aws resources
-    create key, security group
     manage tags
     list resources used
     
 NOTE: This is a set of functions not a class
     
-manual steps
+manual precursors to these functions
     setup account    
         create AWS account
         create config and credentials on local client
@@ -23,27 +22,6 @@ from config import keyfile
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
-### create resource  ##############################################
-
-def create_key():
-    """ creates keypair and saves private key to file """
-    try:
-        key = ec2.create_key_pair(KeyName="key")
-        with open(keyfile, "w") as f:
-            f.write(key.key_material)
-    except Exception as e:
-        log.warning(e)
-
-def create_security_group():
-    """ create security group with inbound access for http, jupyter and ssh """
-    sec = ec2.create_security_group(GroupName="simon", 
-                                    Decription="wordpress, jupyter, ssh")
-    sec.authorize_ingress(
-          IpPermissions=[dict(IpProtocol='tcp', FromPort=80, ToPort=80),
-                         dict(IpProtocol='tcp', FromPort=443, ToPort=443),
-                         dict(IpProtocol='tcp', FromPort=8888, ToPort=8888),
-                         dict(IpProtocol='tcp', FromPort=22, ToPort=22)])
-
 ### manage tags ##############################################
     
 def get_tags(res):
@@ -58,13 +36,15 @@ def set_tag(res, key, value):
     res.create_tags(Tags=[dict(Key=key, Value=value)])
     
 def get_name(res):
+    """ Name is used to identify resources as alternative to id """
     return get_tag(res, "Name")
     
 def set_name(res, value):
+    """ Name is used to identify resources as alternative to id """
     set_tag(res, "Name", value)
 
 def get(name=None, collections=None, unique=True):
-    """ get resources with name=name
+    """ get resources by name
         if unique=True then raise exception if more than one
         if name=None then gets all resources
         collections can be collection or list of collections
@@ -98,7 +78,7 @@ def get(name=None, collections=None, unique=True):
 ### get all resources ####################################################
 
 def get_instances():
-    """ show list of instances """
+    """ get dataframe of instances """
     a=[]
     for i in ec2.instances.all():
         a.append([get_name(i), i.instance_id, i.image.image_id,
