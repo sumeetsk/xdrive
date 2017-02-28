@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 """     
-install and manage applications on server
-    wordpress/mysql
-    jupyter notebook
-    github apps
+install and manage applications on Amazon Linux AMI using yum install 
     
 NOTE: This is a set of functions not a class
 """
@@ -19,7 +16,7 @@ from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
 fab.env.key_filename = keyfile
 
-### install ####################################################
+### essentials to setup boot drive and pdrive ######################
 
 def install_docker():
     # docker
@@ -30,12 +27,12 @@ def install_docker():
     # docker compose
     url = "https://github.com/docker/compose/releases/download/"\
             "1.9.0/docker-compose-$(uname -s)-$(uname -m)"
-    fab.sudo("curl -L %s -o /usr/local/bin/docker-compose"%url)
+    fab.sudo("wget %s -O /usr/local/bin/docker-compose"%url)
     fab.sudo("chmod +x /usr/local/bin/docker-compose")
     log.info("docker installed. if need to pull images then use ssh "\
              "as this shows progress whereas fabric does not")
 
-def install_nvidia():
+def install_nvidia_docker():
     # nvidia docker (NOTE: use instructions for "other" NOT "centos")
     fab.sudo("wget -P /tmp https://github.com/NVIDIA/nvidia-docker/releases/"\
             "download/v1.0.0/nvidia-docker_1.0.0_amd64.tar.xz")
@@ -49,15 +46,18 @@ def install_nvidia():
     
 def set_docker_folder(folder="/var/lib"):
     """ set location of docker images and containers
-    for pdata volume is /v1
+    for pdrive volume = "/v1"
     """
     # create daemon.json settings
     with open("docker/daemon.json", "w") as f:
         f.write('{"graph":"%s/docker"}'%folder)
     fab.sudo("mkdir -p /etc/docker")
     fab.put("docker/daemon.json", "/etc/docker", use_sudo=True)
+    
+    # create target folder
     fab.sudo("mkdir -p %s/docker"%folder)
     
+    # restart to activate new target folder
     with fab.quiet():
         fab.sudo("service docker restart")
 
@@ -67,7 +67,45 @@ def stop_docker():
         fab.run("docker ps -aq | xargs docker stop")
         fab.sudo("service docker stop")
         log.info("docker stopped")
+        
+def run_fastai():
+    """ runs fastai notebook for the first time (after that it restarts)
+        note: -d=daemon so task returns
+    """
+    docker = "nvidia-docker" if fab.sudo("nvidia-smi").succeeded \
+                    else "docker"
+
+    # config on host
+    fab.sudo("{docker} run "\
+              "-v /v1:/host "\
+             "-w=/host/nbs "\
+             "-p 8888:8888 -d "\
+             "--restart=always "\
+             "--name fastai "\
+             "simonm3/fastai".format(**locals()))
+    log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
+
+#### utilities ##############################################
+                
+def install_github(user, projects):
+    """ install github projects or project (if string passed) """
     
+    if isinstance(projects, str):
+        projects = [projects]
+    
+    getgit = "if cd {project}; then git pull; else git clone "\
+            "https://github.com/{user}/{project}.git {project}; fi"
+    
+    for project in projects:
+        fab.run(getgit.format(user=user, project=project))
+
+        # creds (not git controlled)
+        try:
+            fab.put(os.path.join(here, os.pardir, project,
+                             "_creds.py"), project)
+        except:
+            pass
+        
 def install_wordpress():
     fab.run("mkdir wordpress || true")
     fab.put("wordpress/docker-compose.yml", "wordpress")
@@ -92,49 +130,17 @@ def install_notebook():
                                 %passwd(notebook["password"])
     fab.run('mkdir .jupyter || true')
     fab.put(io.StringIO(config) , ".jupyter/jupyter_notebook_config.py")
-        
-def install_github(user, projects):
-    """ install github projects """
-    
-    getgit = "if cd {project}; then git pull; else git clone "\
-            "https://github.com/{user}/{project}.git {project}; fi"
-    
-    for project in projects:
-        fab.run(getgit.format(user=user, project=project))
-
-        # creds (not git controlled)
-        try:
-            fab.put(os.path.join(here, os.pardir, project,
-                             "_creds.py"), project)
-        except:
-            pass
-
-### running ###########################################################
 
 def run_python(project):
     """ runs python project from host folder in container """
     
-    fab.run("docker run -v $HOME:/host -w=/host -d -i "\
+    fab.run("docker run -v $HOME:/host "\
+                    "-w=/host -d -i "\
+                    "--restart=always "\
                     "--name {project} python".format(**locals()))
     fab.run("docker exec {project} python " \
-                "basics/pathconfig.py".format(**locals()))
+                "/host/basics/pathconfig.py".format(**locals()))
     fab.run("docker exec {project} pip install requests".format(**locals()))
     fab.run("docker exec -d {project} python "\
                 "{project}/{project}.py".format(**locals()))
 
-def run_notebook():
-    """ runs fastai notebook
-        note: -d=daemon so task returns. -i=keep alive.
-    """
-    docker = "nvidia-docker" if fab.sudo("nvidia-smi").succeeded \
-                    else "docker"
-
-    # password on host. access to host.
-    volumes = "-v /v1/.jupyter:/root/.jupyter "\
-              "-v /v1:/host"
-    # notebooks on host
-    fab.sudo("{docker} run {volumes} -w=/host/nbs -p 8888:8888 -d -i "\
-             "-u root "\
-             "--name notebook simoneva/fastai7".format(**locals()))
-    with fab.quiet():
-        fab.run("docker exec notebook python /host/basics/pathconfig.py")
