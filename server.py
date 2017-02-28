@@ -12,9 +12,10 @@ import fabric.api as fab
 from time import sleep
 import pandas as pd
 from config import itypes, amis, spotprice, base_spec, user
+import copy
     
 def create(name, bootsize=None, itype="free", spot=False,
-                            pdrive=None, pdrivesize=10, docker="/v1"):
+                            pdrive=None, pdrivesize=10):
     """ create main types of instance needed for deep learning
     
         name = name of instance
@@ -29,8 +30,7 @@ def create(name, bootsize=None, itype="free", spot=False,
         raise Exception("instance %s already exists"%name)
     if isinstance(pdrive, str):
         pdrive = Pdrive(pdrive)
-    
-    spec = base_spec.copy()
+    spec = copy.deepcopy(base_spec)
     
     # size of root volume
     if bootsize:
@@ -45,14 +45,14 @@ def create(name, bootsize=None, itype="free", spot=False,
     
     # if persistent volume then add to instance launch
     if pdrive:
+        Ebs=dict(DeleteOnTermination=False,
+                 VolumeType="gp2",
+                 VolumeSize=pdrivesize)
         latest_snapshot = pdrive.latest_snapshot()
         if latest_snapshot:
-            latest_snapshot = latest_snapshot.id
+            Ebs.update(SnapshotId=latest_snapshot.id)
         bdm = dict(DeviceName="/dev/xvdf",
-                   Ebs=dict(SnapshotId=latest_snapshot,
-                            DeleteOnTermination=False,
-                            VolumeType="gp2",
-                            VolumeSize=pdrivesize))
+                   Ebs=Ebs)
         spec["BlockDeviceMappings"].append(bdm)
         
     # spot or on-demand
@@ -65,7 +65,7 @@ def create(name, bootsize=None, itype="free", spot=False,
     instance.wait_until_running()    
     aws.set_name(instance, name)
     
-    # wait for ip address. is this necessary????
+    # wait for ip address
     while True:
         if instance.public_ip_address:
             break
@@ -76,6 +76,12 @@ def create(name, bootsize=None, itype="free", spot=False,
     
     fab.env.host_string = instance.public_ip_address
     fab.env.user = user
+    wait_ssh()
+
+    # install docker
+    apps.install_docker()
+    if itype=="gpu":
+        apps.install_nvidia_docker()
     
     # prepare pdrive
     if pdrive:
@@ -86,18 +92,14 @@ def create(name, bootsize=None, itype="free", spot=False,
                                             pdrive.name)
                 break
             
-        # format and mount
-        wait_ssh()
+        # if new volume then format and mount
         if not latest_snapshot:
             pdrive.formatdisk()
         pdrive.mount()
-    
-    apps.install_docker()
-    apps.set_docker_folder(docker)
-
-    if itype=="gpu":
-        apps.install_nvidia()
-    
+        apps.set_docker_folder("/v1")
+    else:
+        apps.set_docker_folder()
+        
     return instance
  
 def create_spot(spec):
@@ -131,19 +133,6 @@ def create_spot(spec):
     log.info("spot request fulfilled")
     return aws.ec2.Instance(instanceId)
     
-def create_static_server():
-    """ creates instance with static ip address """
-    instance = create("sm1")
-    fab.env.host_string = aws.get_ips()[0]
-    fab.env.user = user
-    aws.client.associate_address(InstanceId=instance.instance_id,
-                                 PublicIp=fab.env.host_string)
-    wait_ssh()
-    apps.install_docker()
-    apps.install_wordpress()
-    apps.install_miniconda()
-    apps.install_kaggle()
-
 def wait_ssh():
     """ wait for successfull ssh connection """
     log.info("waiting for ssh")
