@@ -20,15 +20,12 @@ fab.env.key_filename = keyfile
 
 def install_docker():
     # docker
-    fab.sudo("yum install docker -y")
+    fab.sudo("yum install docker -y -q")
     fab.sudo("usermod -aG docker %s"%fab.env.user)
     connections.connect(fab.env.host_string)    
     
     # docker compose
-    url = "https://github.com/docker/compose/releases/download/"\
-            "1.9.0/docker-compose-$(uname -s)-$(uname -m)"
-    fab.sudo("wget %s -O /usr/local/bin/docker-compose"%url)
-    fab.sudo("chmod +x /usr/local/bin/docker-compose")
+    fab.sudo("pip install -q docker-compose")
     log.info("docker installed. if need to pull images then use ssh "\
              "as this shows progress whereas fabric does not")
 
@@ -72,8 +69,9 @@ def run_fastai():
     """ runs fastai notebook for the first time (after that it restarts)
         note: -d=daemon so task returns
     """
-    docker = "nvidia-docker" if fab.sudo("nvidia-smi").succeeded \
-                    else "docker"
+    with fab.quiet():
+        r = fab.sudo("nvidia-smi")
+    docker = "nvidia-docker" if  r.succeeded else "docker"
 
     # config on host
     fab.sudo("{docker} run "\
@@ -97,7 +95,7 @@ def install_github(user, projects):
             "https://github.com/{user}/{project}.git {project}; fi"
     
     for project in projects:
-        fab.run(getgit.format(user=user, project=project))
+        fab.sudo(getgit.format(user=user, project=project))
 
         # creds (not git controlled)
         try:
