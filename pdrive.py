@@ -87,22 +87,29 @@ class Pdrive():
             sleep(1)
         log.info("volume attached")
             
-    def diskformat(self):
+    def formatdisk(self):
         """ format volume if no file system """
-        if not fab.sudo("blkid /dev/xvdf"):
-            fab.sudo("mkfs -t ext4 /dev/xvdf")
-            log.info("volume formatted")
+        with fab.quiet():
+            r = fab.sudo("blkid /dev/xvdf")
+        if r.succeeded:
+            log.warning("volume is already formatted")
+            return
+        r = fab.sudo("mkfs -t ext4 /dev/xvdf")
+        if r.failed:
+            raise Exception("no volume attached")
+        log.info("volume formatted successfully")
         
     def mount(self):
         """ mount volume to v1 """
         fab.sudo("mkdir -p /v1")
         fab.sudo("mount /dev/xvdf /v1")
+        fab.sudo("chown -R %s:%s /v1"%(user, user))
         log.info("volume mounted")
     
     def unmount(self):
         """ unmount """
         with fab.quiet():        
-            r = fab.sudo("umount /dev/xvdf")
+            r = fab.sudo("umount /v1")
             if r.succeeded:
                 log.info("volume dismounted")
            
@@ -151,7 +158,7 @@ class Pdrive():
             snapshots = sorted(snapshots, 
                                key=lambda s:s.start_time, reverse=True)
             return snapshots[0]
-        log.warning("no snapshots found")
+        log.warning("no snapshots found. creating new volume %s"%self.name)
         
     def create_kaggle(project):
         """ configure new kaggle project """
