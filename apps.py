@@ -46,10 +46,9 @@ def set_docker_folder(folder="/var/lib"):
     for pdrive volume = "/v1"
     """
     # create daemon.json settings
-    with open("docker/daemon.json", "w") as f:
-        f.write('{"graph":"%s/docker"}'%folder)
+    config = '{"graph":"%s/docker"}'%folder
     fab.sudo("mkdir -p /etc/docker")
-    fab.put("docker/daemon.json", "/etc/docker", use_sudo=True)
+    fab.put(io.StringIO(config), "/etc/docker/daemon.json", use_sudo=True)
     
     # create target folder
     fab.sudo("mkdir -p %s/docker"%folder)
@@ -107,19 +106,19 @@ def install_github(owner, projects):
             pass
         
 def install_notebook():
-    """ copy password from _creds to jupyter_notebook_config """
-    with open("jupyter/jupyter_notebook_config.py") as f:
-        config = f.read()
-    config = config + "\nc.NotebookApp.password='%s'"\
-                                %passwd(notebook["password"])
+    """ create config with password from _creds.py """
+    config = ["c.NotebookApp.ip = '*'",
+              "c.NotebookApp.open_browser = False",
+              "c.NotebookApp.port = 8888",
+              "c.NotebookApp.password='%s'"%passwd(notebook["password"])]
     fab.run('mkdir .jupyter || true')
-    fab.put(io.StringIO(config) , ".jupyter/jupyter_notebook_config.py")
+    fab.put("\n".join(config), ".jupyter/jupyter_notebook_config.py")
 
 #### host packages ################################################  
     
 def install_wordpress():
     fab.run("mkdir wordpress || true")
-    fab.put("wordpress/docker-compose.yml", "wordpress")
+    fab.put("../wordpress/docker-compose.yml", "wordpress")
     with fab.cd("wordpress"):
         fab.run("docker-compose up -d")
 
