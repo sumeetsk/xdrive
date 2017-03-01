@@ -1,10 +1,26 @@
-## Overview of AWS package
+## Overview of pdrive package
 
-The main purpose of this package is to add persistent data and program 
-environment to AWS spot instances.
+This package puts programs and data on a portable "pdrive" rather than an on 
+the AWS server. The "pdrive" can then be moved between different types of 
+server including spot instances.
 
-AWS spot instances offer an 80% cost saving versus on-demand GPU instances. 
-However they have no persistent storage:
+## Benefits
+
+* Saves 100% of the cost of setting up data and programs. Free tier instances
+can be used to set up data and programs before switching to a GPU or other 
+more expensive instance for the heavy lifting
+* Saves 80% of the cost of running GPU deep learning by enabling the use of 
+spot instances at 18c/hour rather than on-demand at 90c/hour.
+* Makes it easy to try different types of server on the exact same data and 
+program setup
+* Makes it easy to migrate to faster or better servers when AWS makes them
+available
+
+## Notes
+
+#### What is wrong with spot instances?
+
+They have no persistent storage:
 
 * AWS can terminate the instance at any time and all data and programs are lost
 * When the user terminates the instance then all data and programs are lost
@@ -13,16 +29,8 @@ However they have no persistent storage:
 The lack of persistent storage makes spot instances impractical for long 
 running processes; where setup requires significant time installing packages 
 and downloading data.
-
-This package puts data and program environment onto a separate volume which 
-persists when the instance is terminated. This makes spot instances practical 
-for deep learning and other applications. It also enables setup to be carried 
-out using a cheaper or free tier instance before firing up a GPU to do the 
-actual training.
-
-## Notes
     
-#### How is data retained?
+#### How does this package provide persistent storage?
 
 * pdrive volume is created based on most recent snapshot (or empty volume)
 * pdrive is mounted as /v1
