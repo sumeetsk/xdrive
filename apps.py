@@ -8,7 +8,7 @@ import logging as log
 import os
 import io
 
-from config import keyfile, here
+from config import keyfile, here, user
 from notebook.auth import passwd
 from _creds import notebook, kaggle
 import fabric.api as fab
@@ -16,12 +16,12 @@ from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
 fab.env.key_filename = keyfile
 
-### essentials to setup boot drive and pdrive ######################
+### packages needed for pdrive ######################
 
 def install_docker():
     # docker
     fab.sudo("yum install docker -y -q")
-    fab.sudo("usermod -aG docker %s"%fab.env.user)
+    fab.sudo("usermod -aG docker %s"%user)
     connections.connect(fab.env.host_string)    
     
     # docker compose
@@ -69,6 +69,9 @@ def run_fastai():
     """ runs fastai notebook for the first time (after that it restarts)
         note: -d=daemon so task returns
     """
+    with fab.cd("/v1"):
+        install_notebook()
+    
     with fab.quiet():
         r = fab.sudo("nvidia-smi")
     docker = "nvidia-docker" if  r.succeeded else "docker"
@@ -76,6 +79,7 @@ def run_fastai():
     # config on host
     fab.sudo("{docker} run "\
               "-v /v1:/host "\
+              "-v /v1/.jupyter:.jupyter"\
              "-w=/host/nbs "\
              "-p 8888:8888 -d "\
              "--restart=always "\
@@ -83,19 +87,17 @@ def run_fastai():
              "simonm3/fastai".format(**locals()))
     log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
 
-#### utilities ##############################################
-                
-def install_github(user, projects):
+def install_github(owner, projects):
     """ install github projects or project (if string passed) """
     
     if isinstance(projects, str):
         projects = [projects]
     
     getgit = "if cd {project}; then git pull; else git clone "\
-            "https://github.com/{user}/{project}.git {project}; fi"
+            "https://github.com/{owner}/{project}.git {project}; fi"
     
     for project in projects:
-        fab.sudo(getgit.format(user=user, project=project))
+        fab.sudo(getgit.format(owner=owner, project=project))
 
         # creds (not git controlled)
         try:
@@ -104,6 +106,17 @@ def install_github(user, projects):
         except:
             pass
         
+def install_notebook():
+    """ copy password from _creds to jupyter_notebook_config """
+    with open("jupyter/jupyter_notebook_config.py") as f:
+        config = f.read()
+    config = config + "\nc.NotebookApp.password='%s'"\
+                                %passwd(notebook["password"])
+    fab.run('mkdir .jupyter || true')
+    fab.put(io.StringIO(config) , ".jupyter/jupyter_notebook_config.py")
+
+#### host packages ################################################  
+    
 def install_wordpress():
     fab.run("mkdir wordpress || true")
     fab.put("wordpress/docker-compose.yml", "wordpress")
@@ -120,14 +133,6 @@ def install_kaggle():
         fab.run("pip install kaggle-cli")
         fab.run("kg config -u %s -p %s"% \
                     (kaggle["user"], kaggle["password"]))
-        
-def install_notebook():
-    with open("jupyter/jupyter_notebook_config.py") as f:
-        config = f.read()
-    config = config + "\nc.NotebookApp.password='%s'"\
-                                %passwd(notebook["password"])
-    fab.run('mkdir .jupyter || true')
-    fab.put(io.StringIO(config) , ".jupyter/jupyter_notebook_config.py")
 
 def run_python(project):
     """ runs python project from host folder in container """
