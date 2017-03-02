@@ -137,8 +137,11 @@ def install_miniconda():
     fab.run("bash Miniconda3-latest-Linux-x86_64.sh")
     
 def install_kaggle():
+    raise "This is not working yet"
+    
     with fab.cd("/v1"):
-        fab.run("pip install kaggle-cli")
+        fab.sudo("sudo yum install libxml2-devel libxslt2-devel")
+        fab.sudo("pip install kaggle-cli")
         fab.run("kg config -u %s -p %s"% \
                     (kaggle["user"], kaggle["password"]))
 
