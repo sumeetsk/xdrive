@@ -25,8 +25,8 @@ class Pdrive():
     def disconnect(self, save=True):
         """ disconnect cleanly and save to snapshot """
         # stop docker on pdrive
-        fab.get("/etc/docker/daemon.json", "temp", use_sudo=True)
-        daemon = json.load(open("temp"))
+        fab.get("/etc/docker/daemon.json", "_temp", use_sudo=True)
+        daemon = json.load(open("_temp"))
         folder = daemon["graph"]
         if folder.startswith("/v1"):
             apps.stop_docker()
