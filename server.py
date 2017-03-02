@@ -161,9 +161,12 @@ def terminate(instance, save_pdrive=True):
             break
 
     pdrive.unmount()
+
+    # reset name so can be reused
+    aws.set_name(instance, "")
     
-    # note terminate instance before snapshot as instances are costly
-    # note no need for separate detach step
+    # terminate instance before snapshot as instances are costly
+    # note automatically detached when terminates
     instance.terminate()
     log.info("instance terminated")
 
