@@ -36,9 +36,14 @@ def install_nvidia_docker():
     fab.sudo("tar --strip-components=1 -C "\
             "/usr/bin -xvf /tmp/nvidia-docker*.tar.xz "\
             "&& rm /tmp/nvidia-docker*.tar.xz")
+    
     # NOTE fab.run used as fab.sudo command does not accept -b option
     # -b for background. nohup for run forever.
-    fab.run("sudo -b nohup nvidia-docker-plugin")
+    # -d and -s must be saved to /v1 to be persistent
+    fab.run("sudo -b nohup "\
+                "-d /v1/nvidia-docker/volumes "\
+                "-s /v1/nvidia-docker/run/plugins "\
+                "nvidia-docker-plugin")
     log.info("nvidia-docker-plugin is running")
     
 def set_docker_folder(folder="/var/lib"):
@@ -85,7 +90,7 @@ def run_fastai():
              "-w /host/nbs "\
              "-p 8888:8888 -d "\
              "--restart=always "\
-             "--name fastai "\
+             "--name fastai4 "\
              "simonm3/fastai".format(**locals()))
     
     # /host/nbs is working copy and home folder
