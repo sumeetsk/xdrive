@@ -19,19 +19,17 @@ class Pdrive():
     def connect(self, instance):
         """ connect drive to existing instance """
         self.attach(instance)
-        self.diskformat()
+        self.formatdisk()
         self.mount()
         
     def disconnect(self, save=True):
         """ disconnect cleanly and save to snapshot """
         # stop docker on pdrive
-        with fab.quiet():
-            r = fab.get("/etc/docker/daemon.json", "temp", use_sudo=True)
-        if r.succeeded:
-            daemon = json.load(open("temp"))
-            folder = daemon["graph"]
-            if folder.startswith("/v1"):
-                apps.stop_docker()
+        fab.get("/etc/docker/daemon.json", "temp", use_sudo=True)
+        daemon = json.load(open("temp"))
+        folder = daemon["graph"]
+        if folder.startswith("/v1"):
+            apps.stop_docker()
         self.unmount()
         self.detach()
         if save:
@@ -112,36 +110,37 @@ class Pdrive():
             r = fab.sudo("umount /v1")
             if r.succeeded:
                 log.info("volume dismounted")
+            else:
+                log.warning("dismount failed. trying to force.")
+                r = fab.sudo("fuser -km /v1")
+                if r.succeeded:
+                    log.info("volume dismounted")
+                else:
+                    log.warning("failed to force dismount")
            
     def detach(self):
         """ detach """
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         if not volume:
             raise Exception("volume %s does not exist"%self.name)
-        try:
-            volume.detach_from_instance(volume.attachments[0]["InstanceId"])
-            log.info("volume detached")
-        except:
-            log.warning("failed to detach volume")
-            return
+        volume.detach_from_instance(volume.attachments[0]["InstanceId"],
+                                        Force=True)
+        log.info("detaching volume. waiting until volume available")
+        aws.client.get_waiter('volume_available').wait(VolumeIds=[volume.id])
+        log.info("volume available")
 
     def create_snapshot(self):
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         snap = aws.ec2.create_snapshot(VolumeId=volume.id)
         aws.set_name(snap, self.name)
         log.info("waiting for snapshot. this can take 15 minutes."\
-                     "you can break and then delete volume manually")
+                                              "Have a cup of tea.")
         snap.wait_until_completed()
         log.info("snapshot completed")
     
     def delete_volume(self):
         volume = aws.get(self.name, collections=aws.ec2.volumes)
     
-        # wait until available
-        log.info("waiting until volume available")
-        aws.client.get_waiter('volume_available').wait(VolumeIds=[volume.id])
-        log.info("volume available")
-        
         # delete volume
         volume.delete()
         aws.client.get_waiter('volume_deleted').wait(VolumeIds=[volume.id])
