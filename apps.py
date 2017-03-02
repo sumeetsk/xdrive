@@ -68,22 +68,30 @@ def run_fastai():
     """ runs fastai notebook for the first time (after that it restarts)
         note: -d=daemon so task returns
     """
-    with fab.cd("/v1"):
-        install_notebook()
-    
     with fab.quiet():
         r = fab.sudo("nvidia-smi")
     docker = "nvidia-docker" if  r.succeeded else "docker"
 
-    # config on host
-    fab.sudo("{docker} run "\
+    # password on /v1 allows it to be changed
+    with fab.cd("/v1"):
+        install_notebook()
+        
+    # /host/nbs is working copy and home folder
+    fab.run("mkdir -p /v1/nbs")
+        
+    fab.run("{docker} run "\
               "-v /v1:/host "\
-              "-v /v1/.jupyter:.jupyter"\
-             "-w=/host/nbs "\
+             "-v /v1/.jupyter:/home/docker/.jupyter "\
+             "-w /host/nbs "\
              "-p 8888:8888 -d "\
              "--restart=always "\
              "--name fastai "\
              "simonm3/fastai".format(**locals()))
+    
+    # /host/nbs is working copy and home folder
+    fab.run("docker exec -it -u docker fastai cp -R "\
+                      "/fastai-courses/deeplearning1/nbs /host")
+    
     log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
 
 def install_github(owner, projects):
@@ -96,7 +104,7 @@ def install_github(owner, projects):
             "https://github.com/{owner}/{project}.git {project}; fi"
     
     for project in projects:
-        fab.sudo(getgit.format(owner=owner, project=project))
+        fab.run(getgit.format(owner=owner, project=project))
 
         # creds (not git controlled)
         try:
@@ -106,13 +114,14 @@ def install_github(owner, projects):
             pass
         
 def install_notebook():
-    """ create config with password from _creds.py """
+    """ create config on /v1. password from _creds.py """
     config = ["c.NotebookApp.ip = '*'",
               "c.NotebookApp.open_browser = False",
               "c.NotebookApp.port = 8888",
               "c.NotebookApp.password='%s'"%passwd(notebook["password"])]
-    fab.run('mkdir .jupyter || true')
-    fab.put("\n".join(config), ".jupyter/jupyter_notebook_config.py")
+    fab.run('mkdir -p /v1/.jupyter')
+    f = io.StringIO("\n".join(config))
+    fab.put(f, "/v1/.jupyter/jupyter_notebook_config.py")
 
 #### host packages ################################################  
     
