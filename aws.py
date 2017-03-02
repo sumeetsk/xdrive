@@ -5,17 +5,10 @@ manage aws resources
     list resources used
     
 NOTE: This is a set of functions not a class
-    
-manual precursors to these functions
-    setup account    
-        create AWS account
-        create config and credentials on local client
-        request gpu limit increase
 """
 import logging as log
 import pandas as pd
 import boto3
-from config import keyfile
 
 ### connection #############################################################
 
