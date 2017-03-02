@@ -4,6 +4,12 @@ This package puts programs and data on a portable "pdrive" rather than an on
 the AWS server. The "pdrive" can then be moved between different types of 
 server including spot instances.
 
+## Installation:
+    git clone https://github.com/simonm3/pdrive pdrive
+    git clone https://github.com/simonm3/basics basics
+    add pdrive and basics to python path
+    open pdrive/examples.ipynb in jupyter notebook
+
 ## Benefits
 
 * Saves 100% of the cost of setting up data and programs. Free tier instances
