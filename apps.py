@@ -41,9 +41,11 @@ def install_nvidia_docker():
     # -b for background. nohup for run forever.
     # -d and -s must be saved to /v1 to be persistent
     fab.run("sudo -b nohup "\
-                "-d /v1/nvidia-docker/volumes "\
-                "-s /v1/nvidia-docker/run/plugins "\
-                "nvidia-docker-plugin")
+                "nvidia-docker-plugin ")
+    
+                ### THIS SHOULD WORK BUT DOESN'T.
+                #"-d /v1/nvidia-docker/volumes ")
+                #"-s /v1/nvidia-docker/run/plugins ")
     log.info("nvidia-docker-plugin is running")
     
 def set_docker_folder(folder="/var/lib"):
@@ -73,6 +75,13 @@ def run_fastai():
     """ runs fastai notebook for the first time (after that it restarts)
         note: -d=daemon so task returns
     """
+    # if already exists then start
+    with fab.quiet():
+        r = fab.run("docker ps -a | grep fastai")
+    if r.succeeded:
+        fab.run("docker start fastai")
+        return
+    
     with fab.quiet():
         r = fab.sudo("nvidia-smi")
     docker = "nvidia-docker" if  r.succeeded else "docker"
@@ -90,15 +99,20 @@ def run_fastai():
              "-w /host/nbs "\
              "-p 8888:8888 -d "\
              "--restart=always "\
-             "--name fastai4 "\
+             "--name fastai "\
              "simonm3/fastai".format(**locals()))
+    
+    # copy driver files. these are not created until nvidia-docker run
+    fab.sudo("cp -r /var/lib/nvidia-docker /v1")
+    # is this needed too?
+    fab.sudo("cp -r /run/docker/plugins /v1")
     
     # /host/nbs is working copy and home folder
     fab.run("docker exec -it -u docker fastai cp -R "\
-                      "/fastai-courses/deeplearning1/nbs /host")
+                     "/fastai-courses/deeplearning1/nbs /host")
     
     log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
-
+    
 def install_github(owner, projects):
     """ install github projects or project (if string passed) """
     
