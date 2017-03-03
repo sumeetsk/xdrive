@@ -97,6 +97,10 @@ def create(name, bootsize=None, itype="free", spot=False,
             pdrive.formatdisk()
         pdrive.mount()
         apps.set_docker_folder("/v1")
+        # restore drivers
+        fab.sudo("cp -r /v1 /var/lib/nvidia-docker")
+        # is this needed too?
+        fab.sudo("cp -r /v1 /run/docker/plugins")
     else:
         apps.set_docker_folder()
         
