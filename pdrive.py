@@ -10,8 +10,6 @@ from config import user
 class Pdrive():
     """ persistent storage for use with spot instances
     """
-    default = dict(Size=10, VolumeType="gp2")        
-    
     def __init__(self, name):
         """ note minimal state (just name) to allow changes via AWS menus """
         self.name = name
@@ -23,13 +21,15 @@ class Pdrive():
         self.mount()
         
     def disconnect(self, save=True):
-        """ disconnect cleanly and save to snapshot """
-        # stop docker on pdrive
+        """ disconnect cleanly and save to snapshot
+        """
+        # if docker on pdrive then stop
         fab.get("/etc/docker/daemon.json", "_temp", use_sudo=True)
         daemon = json.load(open("_temp"))
         folder = daemon["graph"]
         if folder.startswith("/v1"):
             apps.stop_docker()
+            
         self.unmount()
         self.detach()
         if save:
@@ -72,12 +72,13 @@ class Pdrive():
             self.detach()
             
         # attach volume
+        log.info("waiting until volume available")
         aws.client.get_waiter('volume_available').wait(VolumeIds=[volume.id])
         log.info("volume available")
         instance.attach_volume(VolumeId=volume.id, Device='/dev/xvdf')
         
         # wait until device usable.
-        log.info("waiting to attach volume")
+        log.info("waiting for device to be visible")
         while True:
             with fab.quiet():
                 if fab.sudo("ls -l /dev/xvdf").succeeded:
@@ -94,8 +95,8 @@ class Pdrive():
             return
         r = fab.sudo("mkfs -t ext4 /dev/xvdf")
         if r.failed:
-            raise Exception("no volume attached")
-        log.info("volume formatted successfully")
+            raise Exception("format failed as no volume attached")
+        log.info("volume formatted")
         
     def mount(self):
         """ mount volume to v1 """
@@ -123,9 +124,11 @@ class Pdrive():
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         if not volume:
             raise Exception("volume %s does not exist"%self.name)
-        volume.detach_from_instance(volume.attachments[0]["InstanceId"],
+        if volume.attachments:
+            volume.detach_from_instance(volume.attachments[0]["InstanceId"],
                                         Force=True)
-        log.info("detaching volume. waiting until volume available")
+            log.info("detach request sent")
+        log.info("waiting until volume available")
         aws.client.get_waiter('volume_available').wait(VolumeIds=[volume.id])
         log.info("volume available")
 
