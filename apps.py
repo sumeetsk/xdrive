@@ -151,13 +151,11 @@ def install_miniconda():
     fab.run("bash Miniconda3-latest-Linux-x86_64.sh")
     
 def install_kaggle():
-    raise "This is not working yet"
-    
-    with fab.cd("/v1"):
-        fab.sudo("sudo yum install libxml2-devel libxslt2-devel")
-        fab.sudo("pip install kaggle-cli")
-        fab.run("kg config -u %s -p %s"% \
-                    (kaggle["user"], kaggle["password"]))
+    """ note bug means must install in home folder not /v1 """
+    fab.sudo("sudo yum install -y libxml2-devel libxslt-devel")
+    fab.sudo("pip install kaggle-cli")
+    fab.run("kg config -u %s -p %s"% \
+                (kaggle["user"], kaggle["password"]))
 
 def run_python(project):
     """ runs python project from host folder in container """
