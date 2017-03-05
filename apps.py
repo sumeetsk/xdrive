@@ -39,13 +39,8 @@ def install_nvidia_docker():
     
     # NOTE fab.run used as fab.sudo command does not accept -b option
     # -b for background. nohup for run forever.
-    # -d and -s must be saved to /v1 to be persistent
-    fab.run("sudo -b nohup "\
-                "nvidia-docker-plugin ")
-    
-                ### THIS SHOULD WORK BUT DOESN'T.
-                #"-d /v1/nvidia-docker/volumes ")
-                #"-s /v1/nvidia-docker/run/plugins ")
+    # -d is data location
+    fab.run("sudo -b nohup nvidia-docker-plugin -d /v1/nvidia-docker/volumes")
     log.info("nvidia-docker-plugin is running")
     
 def set_docker_folder(folder="/var/lib"):
