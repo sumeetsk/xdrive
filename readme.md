@@ -22,6 +22,17 @@ program setup
 * Makes it easy to migrate to faster or better servers when AWS makes them
 available
 
+## Alternatives
+
+* Buy your own GPU
+  - Costs £600+ and need to update the hardware frequently
+  - If you want to run multiple GPUs then it will be expensive
+  - You may sometimes need a different spec e.g. multiple cores or big memory 
+* Run AWS spot instances directly at market price so they don't get terminated
+  - You need to manually add any program settings that are not in the AMI
+  - You need to manually mount data volumes in the correct availability zone
+  - You need to manually dismount volumes and save to snapshots if required
+
 ## Notes
 
 #### What is wrong with spot instances?
