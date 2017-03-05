@@ -30,7 +30,7 @@ def create(name, itype="free", bootsize=None, pdrive=None, pdrivesize=10,
 
     # instance type
     spec.update(InstanceType=c.itypes[itype],
-                ImageId=c.useramis[itype])
+                ImageId=c.amis[itype])
     
     # boot drive
     if bootsize:
