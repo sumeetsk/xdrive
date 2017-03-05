@@ -1,14 +1,22 @@
-## Overview of pdrive package
+## Overview of xdrive package
 
-This package puts programs and data on a portable "pdrive" rather than an on 
-the AWS server. The "pdrive" can then be moved between different types of 
+This package puts programs and data on a portable "xdrive" rather than an on 
+the AWS server. The "xdrive" can then be moved between different types of 
 server including spot instances.
 
 ## Installation:
-    git clone https://github.com/simonm3/pdrive pdrive
-    git clone https://github.com/simonm3/basics basics
-    add pdrive and basics to python path
-    open pdrive/examples.ipynb in jupyter notebook
+
+* git clone https://github.com/simonm3/xdrive xdrive
+* git clone https://github.com/simonm3/basics basics
+* add xdrive and basics to python path
+* open xdrive/examples.ipynb in jupyter notebook
+
+Basics package is optional but contains:
+* logconfig (logging setup)
+* ipstartup (common imports and loads notebook extensions)
+* cellevents (logs start of cell; and beeps when long runs complete)
+* pathconfig (sets paths)
+* tools (miscellaneous utilities)
 
 ## Benefits
 
@@ -49,20 +57,20 @@ and downloading data.
     
 #### How does this package provide persistent storage?
 
-* pdrive volume is created based on most recent snapshot (or empty volume)
-* pdrive is mounted as /v1
-* on termination pdrive volume is saved to a snapshot
+* xdrive volume is created based on most recent snapshot (or empty volume)
+* xdrive is mounted as /v1
+* on termination xdrive volume is saved to a snapshot
 * if AWS initiates termination then volume remains and can be saved to a 
 snapshot manually
 * all snapshots are retained until manually deleted
-* pdrive volume and snapshots are linked via a "name" tag
+* xdrive volume and snapshots are linked via a "name" tag
 
 #### How are program settings retained?
 
 * programs run in a docker container
-* pdrive holds the database of docker containers
+* xdrive holds the database of docker containers
 * boot volume runs a simple AMI such as the amazon linux AMI
-* nvidia-docker runs the docker container on the pdrive volume
+* nvidia-docker runs the docker container on the xdrive volume
 
 #### Why snapshots?
 

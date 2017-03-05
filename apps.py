@@ -16,7 +16,7 @@ from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
 fab.env.key_filename = keyfile
 
-### packages needed for pdrive ######################
+### packages needed for xdrive ######################
 
 def install_docker():
     # docker
@@ -45,7 +45,7 @@ def install_nvidia_docker():
     
 def set_docker_folder(folder="/var/lib"):
     """ set location of docker images and containers
-    for pdrive volume = "/v1"
+    for xdrive volume = "/v1"
     """
     # create daemon.json settings
     config = '{"graph":"%s/docker"}'%folder

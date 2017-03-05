@@ -4,7 +4,7 @@ create and manage server instances
 
 NOTE: This is a set of functions not a class
 """
-from pdrive import Pdrive
+from xdrive import Xdrive
 import logging as log
 import aws
 import apps
@@ -14,14 +14,14 @@ import pandas as pd
 import config as c
 import copy
     
-def create(name, itype="free", bootsize=None, pdrive=None, pdrivesize=10,
+def create(name, itype="free", bootsize=None, xdrive=None, xdrivesize=10,
                            spot=False):
-    """ create instance and mount pdrive
+    """ create instance and mount xdrive
     
         name = name of instance
         itype = key for itypes dict parameter e.g. free, gpu
         bootsize = size of boot drive
-        pdrive = name of attached, non-boot drive
+        xdrive = name of attached, non-boot drive
         spot = spot versus on-demand
     """
     if aws.get(name, aws.ec2.instances):
@@ -39,13 +39,13 @@ def create(name, itype="free", bootsize=None, pdrive=None, pdrivesize=10,
                            VolumeSize=bootsize))
         spec["BlockDeviceMappings"].append(bdm)
             
-    # add pdrive to instance launch
-    if pdrive:
-        pdrive = Pdrive(pdrive)
+    # add xdrive to instance launch
+    if xdrive:
+        xdrive = Xdrive(xdrive)
         Ebs=dict(DeleteOnTermination=False,
                  VolumeType="gp2",
-                 VolumeSize=pdrivesize)
-        latest_snapshot = pdrive.latest_snapshot()
+                 VolumeSize=xdrivesize)
+        latest_snapshot = xdrive.latest_snapshot()
         if latest_snapshot:
             Ebs.update(SnapshotId=latest_snapshot.id)
         bdm = dict(DeviceName="/dev/xvdf",
@@ -73,18 +73,18 @@ def create(name, itype="free", bootsize=None, pdrive=None, pdrivesize=10,
     fab.env.user = c.user
     wait_ssh()
 
-    # prepare pdrive
-    if pdrive:
+    # prepare xdrive
+    if xdrive:
         # set name
         for vol in instance.block_device_mappings:
             if vol["DeviceName"] == "/dev/xvdf":
                 aws.set_name(aws.ec2.Volume(vol["Ebs"]["VolumeId"]), 
-                                            pdrive.name)
+                                            xdrive.name)
                 break
         # if new volume then format
         if not latest_snapshot:
-            pdrive.formatdisk()
-        pdrive.mount()
+            xdrive.formatdisk()
+        xdrive.mount()
 
         # install docker
         apps.install_docker()
@@ -138,32 +138,32 @@ def wait_ssh():
         sleep(1)
     log.info("ssh connected")
 
-def terminate(instance, save_pdrive=True):
-    """ terminate instance and save pdrive as snapshot """
+def terminate(instance, save_xdrive=True):
+    """ terminate instance and save xdrive as snapshot """
     if isinstance(instance, str):
         instance = aws.get(instance)
     
     apps.stop_docker()
         
-    # get the pdrive
+    # get the xdrive
     for bdm in instance.block_device_mappings:
         if bdm["DeviceName"] == "/dev/xvdf":
             volume = aws.ec2.Volume(bdm["Ebs"]["VolumeId"])
-            pdrive = Pdrive(aws.get_name(volume))
+            xdrive = Xdrive(aws.get_name(volume))
             break
 
-    pdrive.unmount()
+    xdrive.unmount()
     
     # terminate instance before snapshot as instances are costly
     instance.terminate()
     aws.set_name(instance, "")
     log.info("instance terminated")
     
-    if save_pdrive:
-        pdrive.create_snapshot()
+    if save_xdrive:
+        xdrive.create_snapshot()
     # can still be attached even after instance terminated
-    pdrive.detach()
-    pdrive.delete_volume()
+    xdrive.detach()
+    xdrive.delete_volume()
      
 def get_tasks(target="python"):
     """ returns dataframe of tasks on server running inside docker containers

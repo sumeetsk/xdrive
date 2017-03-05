@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-configuration settings for aws package
+configuration settings for xdrive package
 """
 import os
 
