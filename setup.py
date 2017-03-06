@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='xdrive',
-      version='1.1',
+      version='1.1.1',
       description="Puts programs and data on an external drive rather than "\
                   "on the boot drive. This can then be moved between "\
                   "different types of server including spot instances.",
