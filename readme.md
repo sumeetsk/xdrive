@@ -1,22 +1,19 @@
 ## Overview of xdrive package
 
-This package puts programs and data on a portable "xdrive" rather than an on 
-the AWS server. The "xdrive" can then be moved between different types of 
-server including spot instances.
+This package puts programs and data on an external drive rather than an the  
+the boot drive. This can then be moved between different types of server 
+including spot instances.
 
 ## Installation:
 
-* git clone https://github.com/simonm3/xdrive xdrive
-* git clone https://github.com/simonm3/basics basics
-* add xdrive and basics to python path
-* open xdrive/examples.ipynb in jupyter notebook
+Install the package and dependencies
+* pip install xdrive
 
-Basics package is optional but contains:
-* logconfig (logging setup)
-* ipstartup (common imports and loads notebook extensions)
-* cellevents (logs start of cell; and beeps when long runs complete)
-* pathconfig (sets paths)
-* tools (miscellaneous utilities)
+Get the example notebook and follow the instructions
+* wget https://raw.githubusercontent.com/simonm3/xdrive/master/examples.ipynb
+
+Get the source
+* git clone https://github.com/simonm3/xdrive xdrive
 
 ## Benefits
 
