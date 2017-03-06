@@ -161,12 +161,3 @@ class Drive():
                                key=lambda s:s.start_time, reverse=True)
             return snapshots[0]
         log.warning("no snapshots found. creating new volume %s"%self.name)
-        
-    def create_kaggle(project):
-        """ configure new kaggle project """
-        # manually on website accept T&Cs for competition
-        fab.run("mkdir /v1/%s"%project)
-        with fab.cd("cd /v1/%s"%project):
-            fab.run("cp ~/.kaggle-cli")
-            fab.run("kg config -c %s"%project)
-            fab.run("kg download")
