@@ -11,6 +11,7 @@ fab.env.user = user
 
 # location of keyfile
 keyfile = os.path.join(os.path.expanduser("~"), ".aws", "key.pem")
+fab.env.key_filename = keyfile
 
 here = os.path.dirname(os.path.abspath(__file__))
 

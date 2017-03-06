@@ -8,13 +8,12 @@ import logging as log
 import os
 import io
 
-from .config import keyfile, here, user
+from .config import here, user
 from notebook.auth import passwd
 from _creds import notebook, kaggle
 import fabric.api as fab
 from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
-fab.env.key_filename = keyfile
 
 ### packages needed for xdrive ######################
 
