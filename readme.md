@@ -2,7 +2,7 @@
 
 This package puts programs and data on an external drive rather than an the  
 the boot drive. This can then be moved between different types of server 
-including spot instances.
+and creates persistence for spot instances.
 
 ## Installation:
 
@@ -11,6 +11,9 @@ Install the package and dependencies
 
 Get the example notebook and follow the instructions
 * wget https://raw.githubusercontent.com/simonm3/xdrive/master/examples.ipynb
+
+View the source
+* https://github.com/simonm3/xdrive
 
 Get the source
 * git clone https://github.com/simonm3/xdrive xdrive
