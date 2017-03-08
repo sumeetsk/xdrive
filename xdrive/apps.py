@@ -98,8 +98,6 @@ def run_fastai():
     
     # copy driver files. these are not created until nvidia-docker run
     fab.sudo("cp -r /var/lib/nvidia-docker /v1")
-    # is this needed too?
-    fab.sudo("cp -r /run/docker/plugins /v1")
     
     # /host/nbs is working copy and home folder
     fab.run("docker exec -it -u docker fastai cp -R "\
@@ -155,17 +153,3 @@ def install_kaggle():
     fab.sudo("pip install kaggle-cli")
     fab.run("kg config -u %s -p %s"% \
                 (kaggle["user"], kaggle["password"]))
-
-def run_python(project):
-    """ runs python project from host folder in container """
-    
-    fab.run("docker run -v $HOME:/host "\
-                    "-w=/host -d -i "\
-                    "--restart=always "\
-                    "--name {project} python".format(**locals()))
-    fab.run("docker exec {project} python " \
-                "/host/basics/pathconfig.py".format(**locals()))
-    fab.run("docker exec {project} pip install requests".format(**locals()))
-    fab.run("docker exec -d {project} python "\
-                "{project}/{project}.py".format(**locals()))
-
