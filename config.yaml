@@ -1,0 +1,13 @@
+# only used as short name to lookup amis
+itypes:
+    gpu: p2.xlarge
+    free: t2.micro
+
+# region eu-west-1
+amis:
+    # amazon linux. 
+    free: ami-c51e3eb6
+    # amazon linux with nvidia CUDA 7.5
+    gpu: ami-873e61e1
+    
+user: ec2-user
