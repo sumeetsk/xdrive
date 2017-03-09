@@ -5,27 +5,46 @@ create and manage server instances
 NOTE: This is a set of functions not a class
 """
 from .drive import Drive
-from . import apps, aws, config as c
+from . import apps, aws
 import logging as log
+import os
 
 import fabric.api as fab
 from time import sleep
 import pandas as pd
-import copy
-    
+import yaml
+import sys
+
+# configure
+for folder in [os.path.expanduser("~"), 
+               os.path.join(sys.prefix, "etc")]:
+    try:
+        with open(os.path.join(folder, "xdrive/config.yaml")) as f:
+            c = yaml.load(f)
+    except FileNotFoundError:
+        continue
+fab.env.user = c.user
+fab.env.key_filename = os.path.join(os.path.expanduser("~"),
+                                    ".aws", "key.pem")
+
 def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
                            spot=False):
     """ create instance and mount drive
     
         name = name of instance
-        itype = key for itypes dict parameter e.g. free, gpu
+        itype = key for c.itypes dict parameter e.g. free, gpu
         bootsize = size of boot drive
         drive = name of attached, non-boot drive
         spot = spot versus on-demand
     """
     if aws.get(name, aws.ec2.instances):
         raise Exception("instance %s already exists"%name)
-    spec = copy.deepcopy(c.base_spec)
+    spec = dict(ImageId=c.amis["free"],
+                    InstanceType=c.itypes["free"], 
+                    SecurityGroups=["simon"],
+                    KeyName="key",
+                    MinCount=1, MaxCount=1,
+                    BlockDeviceMappings=[])
 
     # instance type
     spec.update(InstanceType=c.itypes[itype],
@@ -69,7 +88,6 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
         instance.load()
     log.info("instance %s running at %s"%(name, instance.public_ip_address))
     fab.env.host_string = instance.public_ip_address
-    fab.env.user = c.user
     wait_ssh()
 
     # prepare drive
@@ -88,20 +106,22 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
         # install docker
         apps.install_docker()
         apps.set_docker_folder("/v1")
-        if itype=="gpu":
+        try:
             apps.install_nvidia_docker()
+        except:
+            log.warning("failed to install nvidia-docker")
     
     log.info("instance %s ready at %s"%(name, instance.public_ip_address))
     return instance
  
-def create_spot(spec):
+def create_spot(spec, spotprice=".25"):
     """ returns a spot instance
     """
     del spec["MinCount"]
     del spec["MaxCount"]
     requestId = aws.client.request_spot_instances(
                      DryRun=False,
-                     SpotPrice=c.spotprice,
+                     SpotPrice=spotprice,
                      LaunchSpecification=spec) \
                     ["SpotInstanceRequests"] \
                     [0]['SpotInstanceRequestId']
