@@ -1,8 +1,18 @@
 """ minimal setup """
 from setuptools import setup
-setup(name='xdrive',
-      version='1.2.2',
-      url='http://github.com/simonm3/xdrive',
-      setup_requires=[ "setuptools_git >= 0.3", ],
-      description="Portable drive that can be moved between AWS instances",
-      install_requires=["simonm3", "fabric3", "pandas", "boto3"])
+import autosetup
+
+params = autosetup.defaults()
+
+params.update(
+   description="Portable drive that can be moved between AWS instances")
+
+# remove spurious packages identified by pipreqs
+params["install_requires"] = [x for x in params["install_requires"]
+                if not x in ["Fabric", "simonm3.egg", "logconfig"]]
+
+# add required by notebook
+params["install_requires"].extend(["simonm3"])
+
+print(params)
+setup(**params)
