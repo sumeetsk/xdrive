@@ -8,19 +8,20 @@ import logging as log
 import os
 import io
 
-from .config import here, user
 from notebook.auth import passwd
 from _creds import notebook, kaggle
 import fabric.api as fab
 from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
 
+here = os.path.dirname(os.path.abspath(__file__))
+
 ### packages needed for xdrive ######################
 
 def install_docker():
     # docker
     fab.sudo("yum install docker -y -q")
-    fab.sudo("usermod -aG docker %s"%user)
+    fab.sudo("usermod -aG docker %s"%fab.env.user)
     connections.connect(fab.env.host_string)    
     
     # docker compose
