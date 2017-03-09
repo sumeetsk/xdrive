@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 from . import aws, apps
-from .config import user
 
-import logging as log
 import fabric.api as fab
 from time import sleep
 import json
@@ -38,7 +36,7 @@ class Drive():
         
 ######## lower level functions ############################
         
-    def attach(self, instance):
+    def attach(self, instance, user="ec2-user"):
         """ attach volume or snapshot """
         if isinstance(instance, str):
             instance = aws.get(instance, collections=aws.ec2.instances)
@@ -102,7 +100,7 @@ class Drive():
         """ mount volume to v1 """
         fab.sudo("mkdir -p /v1")
         fab.sudo("mount /dev/xvdf /v1")
-        fab.sudo("chown -R %s:%s /v1"%(user, user))
+        fab.sudo("chown -R %s:%s /v1"%(fab.env.user, fab.env.user))
         log.info("volume mounted")
     
     def unmount(self):
