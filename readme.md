@@ -1,4 +1,4 @@
-## Overview of xdrive package
+## Portable drive that can be moved between AWS instances
 
 This package puts programs and data on an external drive rather than an the  
 the boot drive. This can then be moved between different types of server 
