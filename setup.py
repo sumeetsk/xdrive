@@ -11,19 +11,21 @@ from setuptools import setup
 params = dict(
     name='xdrive',
     description='Portable drive that can be moved between AWS instances',
-    version='1.2.42',
+    version='1.2.48',
     url='https://github.com/simonm3/xdrive.git',
     install_requires=['boto3', 'Fabric3', 'notebook', 'pandas', 'setuptools'],
     packages=['xdrive'],
-    data_files=[('./etc/xdrive', ['examples.ipynb', 'readme.md',
-                                  'config.yaml', 'licence.txt', 'version'])],
+    data_files=[('./etc/xdrive', ['readme.md', 'examples.ipynb',
+                                  'config.yaml', 'version', 'licence.txt'])],
     py_modules=[],
+    include_package_data=True,
     scripts=None,
-    setup_requires=['setuptools_git >= 0.3', 'pipreqs'])
+    setup_requires=['setuptools_git >= 0.3'])
 
 ######################################################
 ###### This section is read from setup_extra.py ######
 ######################################################
+
 ######################################################
 
 setup(**params)
