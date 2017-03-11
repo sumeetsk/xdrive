@@ -19,11 +19,12 @@ import sys
 for folder in [os.path.expanduser("~"), 
                os.path.join(sys.prefix, "etc")]:
     try:
-        with open(os.path.join(folder, "xdrive/config.yaml")) as f:
+        with open(os.path.join(folder, "config.yaml")) as f:
             c = yaml.load(f)
     except FileNotFoundError:
         continue
-fab.env.user = c.user
+
+fab.env.user = c["user"]
 fab.env.key_filename = os.path.join(os.path.expanduser("~"),
                                     ".aws", "key.pem")
 
@@ -32,23 +33,23 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
     """ create instance and mount drive
     
         name = name of instance
-        itype = key for c.itypes dict parameter e.g. free, gpu
+        itype = key for itypes dict parameter e.g. free, gpu
         bootsize = size of boot drive
         drive = name of attached, non-boot drive
         spot = spot versus on-demand
     """
     if aws.get(name, aws.ec2.instances):
         raise Exception("instance %s already exists"%name)
-    spec = dict(ImageId=c.amis["free"],
-                    InstanceType=c.itypes["free"], 
+    spec = dict(ImageId=c["amis"]["free"],
+                    InstanceType=c["itypes"]["free"], 
                     SecurityGroups=["simon"],
                     KeyName="key",
                     MinCount=1, MaxCount=1,
                     BlockDeviceMappings=[])
 
     # instance type
-    spec.update(InstanceType=c.itypes[itype],
-                ImageId=c.amis[itype])
+    spec.update(InstanceType=c["itypes"][itype],
+                ImageId=c["amis"][itype])
     
     # boot drive
     if bootsize:
