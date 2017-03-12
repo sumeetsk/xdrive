@@ -6,6 +6,10 @@ and creates persistence for spot instances.
 
 ## Installation:
 
+Pre-requisites
+* Open AWS account 
+* Add ~/.aws config and credentials
+
 Install
 * pip install xdrive
 * Add ~/.xdrive/creds.yaml (see example)
@@ -35,13 +39,15 @@ available
 ## Alternatives
 
 * Buy your own GPU
-  - Costs £600+ and need to update the hardware frequently
-  - If you want to run multiple GPUs then it will be expensive
+  - Costs £700-1000 and need to update the hardware frequently
+  - What If you want to run multiple GPUs?
   - You may sometimes need a different spec e.g. multiple cores or big memory 
 * Run AWS spot instances directly at market price so they don't get terminated
   - You need to manually add any program settings that are not in the AMI
   - You need to manually mount data volumes in the correct availability zone
   - You need to manually dismount volumes and save to snapshots if required
+* There is a recent package that implements a portable boot drive
+  - Not tried this yet
 
 ## Notes
 
@@ -80,3 +86,8 @@ snapshot manually
 * can be mounted when instance created (volume cannot)
 * can be attached in any availability_zone (volume is in one zone and instance 
                                             would need to be in same zone)
+
+#### Differences to fastai AMI
+* Uses python3
+* Uses nvidia version 7.5
+* Notebook config and notebooks are on /v1 outside the container

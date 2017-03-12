@@ -14,8 +14,6 @@ import fabric.api as fab
 from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
 
-here = os.path.dirname(os.path.abspath(__file__))
-
 creds = yaml.load(os.path.join(os.path.expanduser("~"), 
                    ".xdrive", "creds.yaml"))
 
@@ -123,13 +121,13 @@ def install_github(owner, projects):
 
         # creds (not git controlled)
         try:
-            fab.put(os.path.join(here, os.pardir, project,
-                             "_creds.py"), project)
+            fab.put(os.path.join(os.path.expanduser("~"), 
+                                     "."+project, "creds.py"))
         except:
             pass
         
 def install_notebook():
-    """ create config on /v1. password from _creds.py """
+    """ create config on /v1 """
     config = ["c.NotebookApp.ip = '*'",
               "c.NotebookApp.open_browser = False",
               "c.NotebookApp.port = 8888",

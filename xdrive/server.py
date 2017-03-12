@@ -20,10 +20,10 @@ for path in [os.path.join(os.path.expanduser("~"), ".xdrive"),
              os.getcwd(),
              os.path.join(sys.prefix, "etc", "xdrive")]:
     try:
-        c = yaml.load(os.path.join(path, "config.yaml"))
+        conf = yaml.load(open(os.path.join(path, "config.yaml")))
     except:
         pass
-fab.env.user = c["user"]
+fab.env.user = conf["user"]
 fab.env.key_filename = os.path.join(os.path.expanduser("~"),
                                     ".aws", "key.pem")
 
@@ -39,16 +39,16 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
     """
     if aws.get(name, aws.ec2.instances):
         raise Exception("instance %s already exists"%name)
-    spec = dict(ImageId=c["amis"]["free"],
-                    InstanceType=c["itypes"]["free"], 
+    spec = dict(ImageId=conf["amis"]["free"],
+                    InstanceType=conf["itypes"]["free"], 
                     SecurityGroups=["simon"],
                     KeyName="key",
                     MinCount=1, MaxCount=1,
                     BlockDeviceMappings=[])
 
     # instance type
-    spec.update(InstanceType=c["itypes"][itype],
-                ImageId=c["amis"][itype])
+    spec.update(InstanceType=conf["itypes"][itype],
+                ImageId=conf["amis"][itype])
     
     # boot drive
     if bootsize:
