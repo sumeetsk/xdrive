@@ -16,14 +16,13 @@ import yaml
 import sys
 
 # configure
-for folder in [os.path.expanduser("~"), 
-               os.path.join(sys.prefix, "etc")]:
+for path in [os.path.join(os.path.expanduser("~"), ".xdrive"),
+             os.getcwd(),
+             os.path.join(sys.prefix, "etc", "xdrive")]:
     try:
-        with open(os.path.join(folder, "config.yaml")) as f:
-            c = yaml.load(f)
-    except FileNotFoundError:
-        continue
-
+        c = yaml.load(os.path.join(path, "config.yaml"))
+    except:
+        pass
 fab.env.user = c["user"]
 fab.env.key_filename = os.path.join(os.path.expanduser("~"),
                                     ".aws", "key.pem")

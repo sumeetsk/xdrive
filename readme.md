@@ -6,8 +6,10 @@ and creates persistence for spot instances.
 
 ## Installation:
 
-Install the package and dependencies
+Install
 * pip install xdrive
+* Add ~/.xdrive/creds.yaml (see example)
+* Add ~/.xdrive/config.yaml (optional - only if need to override defaults)
 
 Get the example notebook and follow the instructions
 * wget https://raw.githubusercontent.com/simonm3/xdrive/master/examples.ipynb

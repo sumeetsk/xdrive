@@ -9,12 +9,15 @@ import os
 import io
 
 from notebook.auth import passwd
-from _creds import notebook, kaggle
+import yaml
 import fabric.api as fab
 from fabric.state import connections
 log.getLogger("paramiko").setLevel(log.ERROR)
 
 here = os.path.dirname(os.path.abspath(__file__))
+
+creds = yaml.load(os.path.join(os.path.expanduser("~"), 
+                   ".xdrive", "creds.yaml"))
 
 ### packages needed for xdrive ######################
 
@@ -130,7 +133,7 @@ def install_notebook():
     config = ["c.NotebookApp.ip = '*'",
               "c.NotebookApp.open_browser = False",
               "c.NotebookApp.port = 8888",
-              "c.NotebookApp.password='%s'"%passwd(notebook["password"])]
+              "c.NotebookApp.password='%s'"%passwd(creds["nbpassword"])]
     fab.run('mkdir -p /v1/.jupyter')
     f = io.StringIO("\n".join(config))
     fab.put(f, "/v1/.jupyter/jupyter_notebook_config.py")
@@ -153,4 +156,4 @@ def install_kaggle():
     fab.sudo("sudo yum install -y libxml2-devel libxslt-devel")
     fab.sudo("pip install kaggle-cli")
     fab.run("kg config -u %s -p %s"% \
-                (kaggle["user"], kaggle["password"]))
+                (creds["kaggle"]["user"], creds["kaggle"]["password"]))
