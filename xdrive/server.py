@@ -21,6 +21,7 @@ for path in [os.path.join(os.path.expanduser("~"), ".xdrive"),
              os.path.join(sys.prefix, "etc", "xdrive")]:
     try:
         conf = yaml.load(open(os.path.join(path, "config.yaml")))
+        break
     except:
         pass
 fab.env.user = conf["user"]
@@ -102,6 +103,11 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
         if not latest_snapshot:
             drive.formatdisk()
         drive.mount()
+        
+        # copy logconfig
+        home = os.path.expanduser("~")
+        logconfig = os.path.join(home, ".logconfig.yaml")
+        fab.put(logconfig, "/v1")
 
         # install docker
         apps.install_docker()

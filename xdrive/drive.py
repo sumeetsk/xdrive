@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from . import aws, apps
-
+import logging as log
 import fabric.api as fab
 from time import sleep
 import json

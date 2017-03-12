@@ -12,7 +12,6 @@ from notebook.auth import passwd
 import yaml
 import fabric.api as fab
 from fabric.state import connections
-log.getLogger("paramiko").setLevel(log.ERROR)
 
 creds = yaml.load(os.path.join(os.path.expanduser("~"), 
                    ".xdrive", "creds.yaml"))
@@ -125,6 +124,23 @@ def install_github(owner, projects):
                                      "."+project, "creds.py"))
         except:
             pass
+
+def install_python(projects):
+    """ installs and runs python project in docker container """
+    if isinstance(projects, str):
+        projects = [projects]
+    for project in projects:
+        # copy folder with project config and creds
+        folder = os.path.join(os.path.expanduser("~"), "."+project)
+        fab.run("mkdir -P %s"%folder)
+        fab.put(folder, "/v1")
+
+        # run with /v1 as home folder for config and creds
+        fab.run("docker run "\
+                "-v /v1/$HOME "\
+                "--name %s -d python"%project)
+        fab.run("docker exec %s pip install %s"%(project, project))
+        fab.run("docker exec %s "%project)
         
 def install_notebook():
     """ create config on /v1 """
