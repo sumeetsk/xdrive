@@ -1,6 +1,0 @@
-# this is a plain text password for the notebook
-nbpassword: xxxxxx
-# only needed if installing kaggle-cli via apps.install_kaggle()
-kaggle:
-    user: xxxxx
-    password: xxxxxxx

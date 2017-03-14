@@ -14,6 +14,7 @@ from time import sleep
 import pandas as pd
 import yaml
 import sys
+import _creds
 
 # configure
 for path in [os.path.join(os.path.expanduser("~"), ".xdrive"),
@@ -106,8 +107,7 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
         
         # copy logconfig
         home = os.path.expanduser("~")
-        logconfig = os.path.join(home, ".logconfig.yaml")
-        fab.put(logconfig, "/v1")
+        fab.put(os.path.join(home, ".logconfig.yaml"), "/v1")
 
         # install docker
         apps.install_docker()
@@ -116,6 +116,9 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
             apps.install_nvidia_docker()
         except:
             log.warning("failed to install nvidia-docker")
+        
+    # put creds in home folder
+    fab.put(_creds.__file__)
     
     log.info("instance %s ready at %s"%(name, instance.public_ip_address))
     return instance
@@ -161,7 +164,7 @@ def wait_ssh():
             except:
                 pass
         sleep(1)
-    log.info("ssh connected")
+    log.info("ssh connected %s"%fab.env.host_string)
 
 def terminate(instance, save_drive=True):
     """ terminate instance and save drive as snapshot """

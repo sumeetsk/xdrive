@@ -9,12 +9,9 @@ import os
 import io
 
 from notebook.auth import passwd
-import yaml
 import fabric.api as fab
 from fabric.state import connections
-
-creds = yaml.load(os.path.join(os.path.expanduser("~"), 
-                   ".xdrive", "creds.yaml"))
+from _creds import nbpassword, kaggle
 
 ### packages needed for xdrive ######################
 
@@ -118,36 +115,29 @@ def install_github(owner, projects):
     for project in projects:
         fab.run(getgit.format(owner=owner, project=project))
 
-        # creds (not git controlled)
-        try:
-            fab.put(os.path.join(os.path.expanduser("~"), 
-                                     "."+project, "creds.py"))
-        except:
-            pass
-
-def install_python(projects):
-    """ installs and runs python project in docker container """
+def install_python(projects, home="/v1:/root"):
+    """ installs and runs python project in docker container
+        home maps to host to access config folders
+    """
     if isinstance(projects, str):
         projects = [projects]
     for project in projects:
-        # copy folder with project config and creds
-        folder = os.path.join(os.path.expanduser("~"), "."+project)
-        fab.run("mkdir -P %s"%folder)
-        fab.put(folder, "/v1")
-
-        # run with /v1 as home folder for config and creds
-        fab.run("docker run "\
-                "-v /v1/$HOME "\
-                "--name %s -d python"%project)
-        fab.run("docker exec %s pip install %s"%(project, project))
-        fab.run("docker exec %s "%project)
+        # copy folder with project config
+        with fab.cd(home):
+            fab.put(os.path.join(os.path.expanduser("~"), "."+project))
+            fab.put(os.path.join(os.path.expanduser("~"), ".logconfig.yaml"))
+        fab.run(f"docker rm -f {project}")
+        # run with home folder for config and creds
+        fab.run(f"docker run -v {home} --name {project} -di python")
+        fab.run(f"docker exec {project} pip install {project}")
+        fab.run(f"docker exec {project} {project}")
         
 def install_notebook():
     """ create config on /v1 """
     config = ["c.NotebookApp.ip = '*'",
               "c.NotebookApp.open_browser = False",
               "c.NotebookApp.port = 8888",
-              "c.NotebookApp.password='%s'"%passwd(creds["nbpassword"])]
+              "c.NotebookApp.password='%s'"%nbpassword]
     fab.run('mkdir -p /v1/.jupyter')
     f = io.StringIO("\n".join(config))
     fab.put(f, "/v1/.jupyter/jupyter_notebook_config.py")
@@ -170,4 +160,4 @@ def install_kaggle():
     fab.sudo("sudo yum install -y libxml2-devel libxslt-devel")
     fab.sudo("pip install kaggle-cli")
     fab.run("kg config -u %s -p %s"% \
-                (creds["kaggle"]["user"], creds["kaggle"]["password"]))
+                (kaggle["user"], kaggle["password"]))

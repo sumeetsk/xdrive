@@ -11,12 +11,12 @@ from setuptools import setup
 params = dict(
     name='xdrive',
     description='Portable drive that can be moved between AWS instances',
-    version='1.2.48',
+    version='1.2.55',
     url='https://github.com/simonm3/xdrive.git',
-    install_requires=['boto3', 'Fabric3', 'notebook', 'pandas', 'setuptools'],
+    install_requires=['setuptools'],
     packages=['xdrive'],
-    data_files=[('./etc/xdrive', ['readme.md', 'examples.ipynb',
-                                  'config.yaml', 'version', 'licence.txt'])],
+    data_files=[('./etc/xdrive', ['creds.yaml', 'licence.txt',
+                                  'readme.md', 'examples.ipynb', 'version', 'config.yaml'])],
     py_modules=[],
     include_package_data=True,
     scripts=None,
@@ -26,6 +26,8 @@ params = dict(
 ###### This section is read from setup_extra.py ######
 ######################################################
 
+# pipreqs bug identifies this as well as the correct fabric3
+params["install_requires"].remove("Fabric")
 ######################################################
 
 setup(**params)
