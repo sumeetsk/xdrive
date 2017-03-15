@@ -115,21 +115,25 @@ def install_github(owner, projects):
     for project in projects:
         fab.run(getgit.format(owner=owner, project=project))
 
-def install_python(projects, home="/v1:/root"):
-    """ installs and runs python project in docker container
-        home maps to host to access config folders
+def install_python(projects, home="/v1"):
+    """ installs and runs python project in docker container as root user
+        home maps to host to access config and creds
     """
     if isinstance(projects, str):
         projects = [projects]
     for project in projects:
-        # copy folder with project config
+        # copy ~/.project config settings
         with fab.cd(home):
             fab.put(os.path.join(os.path.expanduser("~"), "."+project))
-            fab.put(os.path.join(os.path.expanduser("~"), ".logconfig.yaml"))
         fab.run(f"docker rm -f {project}")
-        # run with home folder for config and creds
-        fab.run(f"docker run -v {home} --name {project} -di python")
+        
+        # run container with home folder for config and creds
+        fab.run(f"docker run -v {home}:/root --name {project} -di python")
+        
+        # install project
         fab.run(f"docker exec {project} pip install {project}")
+        
+        # run project
         fab.run(f"docker exec {project} {project}")
         
 def install_notebook():
