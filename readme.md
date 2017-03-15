@@ -11,7 +11,7 @@ Pre-requisites
 * Add ~/.aws config and credentials
 * _creds.py in the pythonpath
   - nbpassword=xxx
-  - kaggle=dict(user=xxx, password=xxx)
+  - kaggle=dict(user, password)
 
 Install
 * pip install xdrive
