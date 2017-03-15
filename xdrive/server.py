@@ -29,7 +29,7 @@ fab.env.user = conf["user"]
 fab.env.key_filename = os.path.join(os.path.expanduser("~"),
                                     ".aws", "key.pem")
 
-def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
+def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
                            spot=False):
     """ create instance and mount drive
     
@@ -105,10 +105,6 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=10,
             drive.formatdisk()
         drive.mount()
         
-        # copy logconfig
-        home = os.path.expanduser("~")
-        fab.put(os.path.join(home, ".logconfig.yaml"), "/v1")
-
         # install docker
         apps.install_docker()
         apps.set_docker_folder("/v1")
