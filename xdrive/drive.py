@@ -22,11 +22,13 @@ class Drive():
         """ disconnect cleanly and save to snapshot
         """
         # if docker on xdrive then stop
-        fab.get("/etc/docker/daemon.json", "_temp", use_sudo=True)
-        daemon = json.load(open("_temp"))
-        folder = daemon["graph"]
-        if folder.startswith("/v1"):
-            apps.stop_docker()
+        with fab.quiet():
+            r = fab.get("/etc/docker/daemon.json", "_temp", use_sudo=True)
+        if r.succeeded:
+            daemon = json.load(open("_temp"))
+            folder = daemon["graph"]
+            if folder.startswith("/v1"):
+                apps.stop_docker()
             
         self.unmount()
         self.detach()
