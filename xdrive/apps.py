@@ -13,7 +13,7 @@ import fabric.api as fab
 from fabric.state import connections
 from _creds import nbpassword, kaggle
 
-### packages needed for xdrive ######################
+################ needed for xdrive ######################
 
 def install_docker():
     # docker
@@ -63,6 +63,8 @@ def stop_docker():
         fab.sudo("service docker stop")
         log.info("docker stopped")
         
+##################### needed for fastai ###########################
+        
 def run_fastai():
     """ runs fastai notebook for the first time (after that it restarts)
         note: -d=daemon so task returns
@@ -102,6 +104,18 @@ def run_fastai():
                      "/fastai-courses/deeplearning1/nbs /host")
     
     log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
+ 
+def install_notebook():
+    """ create config on /v1 """
+    config = ["c.NotebookApp.ip = '*'",
+              "c.NotebookApp.open_browser = False",
+              "c.NotebookApp.port = 8888",
+              "c.NotebookApp.password='%s'"%nbpassword]
+    fab.run('mkdir -p /v1/.jupyter')
+    f = io.StringIO("\n".join(config))
+    fab.put(f, "/v1/.jupyter/jupyter_notebook_config.py")
+    
+###### install other projects in docker containers #########
     
 def install_github(owner, projects):
     """ install github projects or project (if string passed) """
@@ -117,7 +131,6 @@ def install_github(owner, projects):
 
 def install_python(projects, home="/v1"):
     """ installs and runs python project in docker container as root user
-        home maps to host to access config and creds
     """
     if isinstance(projects, str):
         projects = [projects]
@@ -125,28 +138,20 @@ def install_python(projects, home="/v1"):
         # copy ~/.project config settings
         with fab.cd(home):
             fab.put(os.path.join(os.path.expanduser("~"), "."+project))
+        
+        # remove existing container
         fab.run(f"docker rm -f {project}")
         
         # run container with home folder for config and creds
         fab.run(f"docker run -v {home}:/root --name {project} -di python")
         
-        # install project
+        # install project from pypi
         fab.run(f"docker exec {project} pip install {project}")
         
         # run project
         fab.run(f"docker exec {project} {project}")
         
-def install_notebook():
-    """ create config on /v1 """
-    config = ["c.NotebookApp.ip = '*'",
-              "c.NotebookApp.open_browser = False",
-              "c.NotebookApp.port = 8888",
-              "c.NotebookApp.password='%s'"%nbpassword]
-    fab.run('mkdir -p /v1/.jupyter')
-    f = io.StringIO("\n".join(config))
-    fab.put(f, "/v1/.jupyter/jupyter_notebook_config.py")
-
-#### host packages ################################################  
+#### install on host ################################################  
     
 def install_wordpress():
     fab.run("mkdir wordpress || true")
@@ -160,7 +165,9 @@ def install_miniconda():
     fab.run("bash Miniconda3-latest-Linux-x86_64.sh")
     
 def install_kaggle():
-    """ note bug means must install in home folder not /v1 """
+    """ note bug means must install in home folder not /v1
+    will only download data to home and subfolders
+    """
     fab.sudo("sudo yum install -y libxml2-devel libxslt-devel")
     fab.sudo("pip install kaggle-cli")
     fab.run("kg config -u %s -p %s"% \
