@@ -7,7 +7,6 @@ NOTE: This is a set of functions not a class
 import logging as log
 import os
 import io
-import logcon
 
 from notebook.auth import passwd
 import fabric.api as fab
