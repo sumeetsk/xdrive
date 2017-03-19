@@ -110,7 +110,7 @@ def install_notebook():
     config = ["c.NotebookApp.ip = '*'",
               "c.NotebookApp.open_browser = False",
               "c.NotebookApp.port = 8888",
-              "c.NotebookApp.password='%s'"%nbpassword]
+              "c.NotebookApp.password='%s'"%passwd(nbpassword)]
     fab.run('mkdir -p /v1/.jupyter')
     f = io.StringIO("\n".join(config))
     fab.put(f, "/v1/.jupyter/jupyter_notebook_config.py")
