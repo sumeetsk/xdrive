@@ -9,9 +9,6 @@ and creates persistence for spot instances.
 Pre-requisites
 * Open AWS account 
 * Add ~/.aws config and credentials
-* _creds.py in the pythonpath
-  - nbpassword=xxx
-  - kaggle=dict(user, password)
 
 Install
 * pip install xdrive

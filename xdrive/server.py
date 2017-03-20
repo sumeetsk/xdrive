@@ -14,7 +14,6 @@ from time import sleep
 import pandas as pd
 import yaml
 import sys
-import _creds
 
 # configure
 for path in [os.path.join(os.path.expanduser("~"), ".xdrive"),
@@ -113,9 +112,6 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         except:
             log.warning("failed to install nvidia-docker")
         
-    # put creds in home folder
-    fab.put(_creds.__file__)
-    
     log.info("instance %s ready at %s"%(name, instance.public_ip_address))
     return instance
  

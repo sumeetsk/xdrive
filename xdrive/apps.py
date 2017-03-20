@@ -8,10 +8,8 @@ import logging as log
 import os
 import io
 
-from notebook.auth import passwd
 import fabric.api as fab
 from fabric.state import connections
-from _creds import nbpassword, kaggle
 
 ################ needed for xdrive ######################
 
@@ -80,16 +78,11 @@ def run_fastai():
         r = fab.sudo("nvidia-smi")
     docker = "nvidia-docker" if  r.succeeded else "docker"
 
-    # password on /v1 allows it to be changed
-    with fab.cd("/v1"):
-        install_notebook()
-        
     # /host/nbs is working copy and home folder
     fab.run("mkdir -p /v1/nbs")
         
     fab.run("{docker} run "\
               "-v /v1:/host "\
-             "-v /v1/.jupyter:/home/docker/.jupyter "\
              "-w /host/nbs "\
              "-p 8888:8888 -d "\
              "--restart=always "\
@@ -105,16 +98,6 @@ def run_fastai():
     
     log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
  
-def install_notebook():
-    """ create config on /v1 """
-    config = ["c.NotebookApp.ip = '*'",
-              "c.NotebookApp.open_browser = False",
-              "c.NotebookApp.port = 8888",
-              "c.NotebookApp.password='%s'"%passwd(nbpassword)]
-    fab.run('mkdir -p /v1/.jupyter')
-    f = io.StringIO("\n".join(config))
-    fab.put(f, "/v1/.jupyter/jupyter_notebook_config.py")
-    
 ###### install other projects in docker containers #########
     
 def install_github(owner, projects):
@@ -164,11 +147,10 @@ def install_miniconda():
                 "Miniconda3-latest-Linux-x86_64.sh")
     fab.run("bash Miniconda3-latest-Linux-x86_64.sh")
     
-def install_kaggle():
+def install_kaggle(user, password):
     """ note bug means must install in home folder not /v1
     will only download data to home and subfolders
     """
     fab.sudo("sudo yum install -y libxml2-devel libxslt-devel")
     fab.sudo("pip install kaggle-cli")
-    fab.run("kg config -u %s -p %s"% \
-                (kaggle["user"], kaggle["password"]))
+    fab.run("kg config -u %s -p %s"%(user, password))
