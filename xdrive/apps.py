@@ -26,6 +26,12 @@ def install_docker():
 
 def install_nvidia_docker():
     # nvidia docker (NOTE: use instructions for "other" NOT "centos")
+    with fab.quiet():
+        r = fab.run("nvidia-smi")
+        if r.failed:
+            log.warning("nvidia drivers not found")
+            return    
+    
     fab.sudo("wget -P /tmp https://github.com/NVIDIA/nvidia-docker/releases/"\
             "download/v1.0.0/nvidia-docker_1.0.0_amd64.tar.xz")
     fab.sudo("tar --strip-components=1 -C "\
@@ -90,7 +96,7 @@ def run_fastai():
              "simonm3/fastai".format(**locals()))
     
     # create working copy of nbs in /v1/nbs
-    fab.run("docker cp fastai:/fastai-courses/deeplearning1/nbs /v1/nbs")
+    fab.run("docker cp fastai:/fastai-courses/deeplearning1/nbs /v1")
     
     log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
  
