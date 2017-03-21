@@ -52,8 +52,8 @@ View the source
 
 ## Issues
 
-* Sometimes you may get "Connection reset by peer" in the notebook. I am 
-unclear when/why this happens. However if you just rerun the cell it will work.
+* Sometimes notebooks says "Connection reset by peer". Unclear when/why. 
+However if you just rerun the cell it will work.
 
 ## Benefits
 
