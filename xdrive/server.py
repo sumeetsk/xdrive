@@ -192,7 +192,7 @@ def wait_ssh():
         sleep(1)
     log.info("ssh connected %s"%fab.env.host_string)
 
-def terminate(instance, save_drive=True):
+def terminate(instance, save=True):
     """ terminate instance and save drive as snapshot """
     if isinstance(instance, str):
         instance = aws.get(instance)
@@ -213,7 +213,7 @@ def terminate(instance, save_drive=True):
     aws.set_name(instance, "")
     log.info("instance terminated")
     
-    if save_drive:
+    if save:
         drive.create_snapshot()
     # can still be attached even after instance terminated
     drive.detach()

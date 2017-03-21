@@ -17,7 +17,7 @@ def install_docker():
     # docker
     fab.sudo("yum install docker -y -q")
     fab.sudo("usermod -aG docker %s"%fab.env.user)
-    connections.connect(fab.env.host_string)    
+    connections[fab.env.host_string].get_transport().close() 
     
     # docker compose
     fab.sudo("pip install -q docker-compose")
@@ -78,23 +78,20 @@ def run_fastai():
         r = fab.sudo("nvidia-smi")
     docker = "nvidia-docker" if  r.succeeded else "docker"
 
-    # /host/nbs is working copy and home folder
+    # /v1/nbs is working copy and home folder
     fab.run("mkdir -p /v1/nbs")
         
     fab.run("{docker} run "\
-              "-v /v1:/host "\
-             "-w /host/nbs "\
+              "-v /v1:/v1 "\
+             "-w /v1/nbs "\
              "-p 8888:8888 -d "\
              "--restart=always "\
              "--name fastai "\
              "simonm3/fastai".format(**locals()))
     
-    # copy driver files. these are not created until nvidia-docker run
-    fab.sudo("cp -r /var/lib/nvidia-docker /v1")
-    
-    # /host/nbs is working copy and home folder
+    # create working copy of nbs in /v1/nbs
     fab.run("docker exec -it -u docker fastai cp -R "\
-                     "/fastai-courses/deeplearning1/nbs /host")
+                     "/fastai-courses/deeplearning1/nbs /v1/nbs")
     
     log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
  
