@@ -1,27 +1,52 @@
+**Currently testing some changes. Will remove this notice when complete**:
+
+* simplified configuration
+* xdriveclient in a container. this is cleaner as it eliminates any conflict 
+with local settings
+* Terminates server when amazon issues termination notice.
+
 ## Portable drive that can be moved between AWS instances
 
 This package puts programs and data on an external drive rather than an the  
 the boot drive. This can then be moved between different types of server 
 and creates persistence for spot instances.
 
+Note that xdrive holds minimal state so you can continue to use AWS menus in
+parallel.
+
 ## Installation:
+
+Easiest option is to run xdrive in a container on your laptop. Note this means
+you have four machines running!:
+* Your laptop
+* xdrive container on your laptop running notebook server
+* Amazon instance
+* fastai (or other) container on the amazon instance running notebook server
 
 Pre-requisites
 * Open AWS account 
-* Add ~/.aws config and credentials
+* Add AWS config and AWS credentials to ~/.aws
 
-Install
+If not in Europe
+* download https://raw.githubusercontent.com/simonm3/xdrive/master/config.yaml
+to ~/.xdrive/config.yaml
+* edit config.yaml to use equivalent AMIs for your region. These are Amazon
+ linux (non-GPU server); and Amazon linux with nvidia 7.5 (for GPU server)
+
+Run xdrive in a container (linked to ~/.aws and ~/.xdrive/config.yaml)
+* download https://raw.githubusercontent.com/simonm3/xdrive/master/xdriveclient.py
+* python xdriveclient.py
+* open browser at localhost:8888
+* open examples.ipynb
+
+Install locally (if you don't want to run in a container)
 * pip install xdrive
-* Add ~/.xdrive/config.yaml (optional - only if need to override defaults)
-
-Get the example notebook and follow the instructions
-* wget https://raw.githubusercontent.com/simonm3/xdrive/master/examples.ipynb
+* download https://raw.githubusercontent.com/simonm3/xdrive/master/examples.ipynb
+* open browser at localhost:8888
+* open examples.ipynb
 
 View the source
 * https://github.com/simonm3/xdrive
-
-Get the source
-* git clone https://github.com/simonm3/xdrive xdrive
 
 ## Benefits
 
@@ -66,9 +91,10 @@ and downloading data.
 
 * xdrive volume is created based on most recent snapshot (or empty volume)
 * xdrive is mounted as /v1
-* on termination xdrive volume is saved to a snapshot
-* if AWS initiates termination then volume remains and can be saved to a 
-snapshot manually
+* on termination by user xdrive volume is saved to a snapshot
+* on termination of spot instance by amazon volume is saved to a snapshot. Note
+this needs testing. If it fails then data volume remains and can be saved 
+manually to a snapshot.
 * all snapshots are retained until manually deleted
 * xdrive volume and snapshots are linked via a "name" tag
 
@@ -89,4 +115,4 @@ snapshot manually
 #### Differences to fastai AMI
 * Uses python3
 * Uses nvidia version 7.5
-* Notebook config and notebooks are on /v1 outside the container
+* Notebooks are on /v1 outside the container

@@ -8,6 +8,8 @@ from .drive import Drive
 from . import apps, aws
 import logging as log
 import os
+import time
+from threading import Thread
 
 import fabric.api as fab
 from time import sleep
@@ -143,8 +145,40 @@ def create_spot(spec, spotprice=".25"):
                     ['SpotInstanceRequests'][0] \
                     ['InstanceId']
     log.info("spot request fulfilled %s"%instanceId)
+
+    # start thread to poll for AWS termination notice
+    t = Thread(target=spotcheck, name=requestId, args=[requestId,])
+    t.start()
+
     return aws.ec2.Instance(instanceId)
-    
+
+def spotcheck(requestId):
+    """ poll for spot instance termination notice """
+    while True:
+        requests = aws.client.describe_spot_instance_requests \
+                        (SpotInstanceRequestIds=[requestId])
+        
+        # request already deleted
+        if len(requests) == 0:
+            return
+        
+        # instance already terminated
+        request = requests[0]
+        instance = aws.ec2.Instance(request["InstanceId"])
+        if instance.state["name"] != "running":
+            return
+        
+        # instance marked for termination
+        if request["Status"]["Code"] == "marked-for-termination":
+            name = aws.get_name(instance)
+            log.warning(f"{name} has been marked for termination by AWS.\n"\
+                        "Attempting to terminate cleanly and save data.")
+            terminate(instance)
+            return
+        
+        # amazon recommend poll every 5 seconds
+        time.sleep(5)
+
 def wait_ssh():
     """ wait for ssh server """
     log.info("waiting for ssh server")
