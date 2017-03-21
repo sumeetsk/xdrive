@@ -8,15 +8,14 @@ from setuptools import setup
 
 params = dict(
     name='xdrive',
-    description='Portable drive that can be moved between AWS instances',
-    version='1.2.65',
+    description='**Currently testing some changes. Will remove this notice when complete**:',
+    version='1.2.66',
     url='https://github.com/simonm3/xdrive.git',
-    install_requires=['pandas', 'Fabric',
-                      'notebook', 'boto3', 'Fabric3', 'PyYAML'],
+    install_requires=['PyYAML', 'boto3', 'Fabric3', 'Fabric', 'pandas'],
     packages=['xdrive'],
-    data_files=[('./etc/xdrive', ['readme.md', 'config.yaml',
-                                  'examples.ipynb', 'licence.txt', 'version'])],
-    py_modules=[],
+    data_files=[('./etc/xdrive', ['version', 'licence.txt',
+                                  'examples.ipynb', 'readme.md', 'config.yaml'])],
+    py_modules=['xdriveclient'],
     include_package_data=True,
     scripts=None,
     setup_requires=['setuptools_git >= 0.3'])
