@@ -3,7 +3,9 @@
 * simplified configuration
 * xdriveclient in a container. this is cleaner as it eliminates any conflict 
 with local settings
-* Terminates server when amazon issues termination notice.
+* Terminates server when amazon issues termination notice. Not tested but not
+critical as volume is retained anyway and can be saved manually.
+* End to end test and fix a number of bugs
 
 ## Portable drive that can be moved between AWS instances
 
@@ -47,6 +49,11 @@ Install locally (if you don't want to run in a container)
 
 View the source
 * https://github.com/simonm3/xdrive
+
+## Issues
+
+* Sometimes you may get "Connection reset by peer" in the notebook. I am 
+unclear when/why this happens. However if you just rerun the cell it will work.
 
 ## Benefits
 
