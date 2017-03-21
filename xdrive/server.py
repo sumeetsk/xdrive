@@ -159,13 +159,14 @@ def spotcheck(requestId):
                         (SpotInstanceRequestIds=[requestId])
         
         # request already deleted
-        if len(requests) == 0:
+        try:
+            request = requests['SpotInstanceRequests'][0]
+        except:
             return
         
         # instance already terminated
-        request = requests[0]
         instance = aws.ec2.Instance(request["InstanceId"])
-        if instance.state["name"] != "running":
+        if instance.state["Name"] != "running":
             return
         
         # instance marked for termination
