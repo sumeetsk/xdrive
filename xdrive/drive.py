@@ -71,18 +71,25 @@ class Drive():
         if volume.attachments:
             self.detach()
             
-        # attach volume
-        log.info("waiting until volume available")
-        aws.client.get_waiter('volume_available').wait(VolumeIds=[volume.id])
+        # wait until available
+        while True:
+            item = aws.client.describe_volumes(
+                        VolumeIds=[volume.id])["Volumes"][0]
+            if item["State"] == "available":
+                break
+            log.info("waiting until volume available")
+            sleep(15)
         log.info("volume available")
+        
+        # attach
         instance.attach_volume(VolumeId=volume.id, Device='/dev/xvdf')
         
-        # wait until device usable.
-        log.info("waiting for device to be visible")
+        # wait until usable.
         while True:
             with fab.quiet():
                 if fab.sudo("ls -l /dev/xvdf").succeeded:
                     break
+            log.info("waiting until volume visible")
             sleep(1)
         log.info("volume attached")
             
@@ -128,25 +135,45 @@ class Drive():
             volume.detach_from_instance(volume.attachments[0]["InstanceId"],
                                         Force=True)
             log.info("detach request sent")
-        log.info("waiting until volume available")
-        aws.client.get_waiter('volume_available').wait(VolumeIds=[volume.id])
-        log.info("volume available")
+            
+            # wait until available
+            while True:
+                item = aws.client.describe_volumes(
+                            VolumeIds=[volume.id])["Volumes"][0]
+                if item["State"] == "available":
+                    break
+                log.info("waiting until volume available")
+                sleep(15)
+            log.info("volume available")
 
     def create_snapshot(self):
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         snap = aws.ec2.create_snapshot(VolumeId=volume.id)
         aws.set_name(snap, self.name)
+        
         log.info("waiting for snapshot. this can take 15 minutes."\
                                               "Have a cup of tea.")
-        snap.wait_until_completed()
+        while True:
+            item = aws.client.describe_snapshots(
+                        SnapshotIds=[snap.id])["Snapshots"][0]
+            if item["State"] == "completed":
+                break
+            log.info("%s snapshot completed"%item["Progress"])
+            sleep(15)
         log.info("snapshot completed")
     
     def delete_volume(self):
         volume = aws.get(self.name, collections=aws.ec2.volumes)
-    
-        # delete volume
         volume.delete()
-        aws.client.get_waiter('volume_deleted').wait(VolumeIds=[volume.id])
+
+        log.info("deleting volume")
+        while True:
+            item = aws.client.describe_volumes(
+                        VolumeIds=[volume.id])["Volumes"][0]
+            if item["State"] == "deleted":
+                break
+            log.info("waiting for volume to be deleted")
+            sleep(15)
         log.info("volume deleted")
         
     def latest_snapshot(self):
