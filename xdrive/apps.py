@@ -90,8 +90,7 @@ def run_fastai():
              "simonm3/fastai".format(**locals()))
     
     # create working copy of nbs in /v1/nbs
-    fab.run("docker exec -it -u docker fastai cp -R "\
-                     "/fastai-courses/deeplearning1/nbs /v1/nbs")
+    fab.run("docker cp fastai:/fastai-courses/deeplearning1/nbs /v1/nbs")
     
     log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
  
