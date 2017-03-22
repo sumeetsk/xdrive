@@ -18,24 +18,11 @@ parallel.
 
 ## Installation:
 
-Easiest option is to run xdrive in a container on your laptop. Note this means
-you have four machines running!:
-* Your laptop
-* xdrive container on your laptop running notebook server
-* Amazon instance
-* fastai (or other) container on the amazon instance running notebook server
-
 Pre-requisites
-* Open AWS account 
-* Add AWS config and AWS credentials to ~/.aws
+* open AWS account 
+* add AWS config and AWS credentials to ~/.aws
 
-If not in Europe
-* download https://raw.githubusercontent.com/simonm3/xdrive/master/config.yaml
-to ~/.xdrive/config.yaml
-* edit config.yaml to use equivalent AMIs for your region. These are Amazon
- linux (non-GPU server); and Amazon linux with nvidia 7.5 (for GPU server)
-
-Run xdrive in a container (linked to ~/.aws and ~/.xdrive/config.yaml)
+Run xdrive in a container (using ~/.aws and ~/.xdrive/config.yaml)
 * download https://raw.githubusercontent.com/simonm3/xdrive/master/xdriveclient.py
 * python xdriveclient.py
 * open browser at localhost:8888
@@ -52,8 +39,14 @@ View the source
 
 ## Issues
 
-* Sometimes notebooks says "Connection reset by peer". Unclear when/why. 
-However if you just rerun the cell it will work.
+* If notebook says "Connection reset by peer" then just rerun the cell. If you
+know how I can stop this then please let me know.
+* If you run xdrive in a container this means you have four machines running.
+If you get problems then first check which machine you are using!
+    - Your laptop
+    - xdrive container on your laptop running notebook server
+    - Amazon instance
+    - fastai (or other) container on the amazon instance running notebook server
 
 ## Benefits
 
