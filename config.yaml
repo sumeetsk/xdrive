@@ -1,13 +1,22 @@
-# only used as short name to lookup amis
-itypes:
-    gpu: p2.xlarge
-    free: t2.micro
+# other itypes can be added here
+itypes: {gpu: p2.xlarge, free: t2.micro}
 
-# region eu-west-1
-amis:
-    # amazon linux. 
-    free: ami-c51e3eb6
-    # amazon linux with nvidia CUDA 7.5
-    gpu: ami-873e61e1
-    
 user: ec2-user
+
+# amazon linux ami
+# amazon/nvidia linux ami with cuda 7.5
+regions:
+  ap-northeast-1: {free: ami-56d4ad31, gpu: ami-6b443f0c}
+  ap-northeast-2: {free: ami-dac312b4, gpu: ''}
+  ap-south-1: {free: ami-f9daac96, gpu: ''}
+  ap-southeast-1: {free: ami-dc9339bf, gpu: ami-1c0ba17f}
+  ap-southeast-2: {free: ami-1c47407f, gpu: ami-bf0d0adc}
+  ca-central-1: {free: ami-ebed508f, gpu: ''}
+  eu-central-1: {free: ami-af0fc0c0, gpu: ami-a16ba4ce}
+  eu-west-1: {free: ami-70edb016, gpu: ami-873e61e1}
+  eu-west-2: {free: ami-f1949e95, gpu: ''}
+  sa-east-1: {free: ami-80086dec, gpu: ''}
+  us-east-1: {free: ami-0b33d91d, gpu: ami-bb18efad}
+  us-east-2: {free: ami-c55673a0, gpu: ''}
+  us-west-1: {free: ami-165a0876, gpu: ami-0a9dcf6a}
+  us-west-2: {free: ami-f173cc91, gpu: ami-31912f51}

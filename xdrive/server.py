@@ -16,24 +16,54 @@ from time import sleep
 import pandas as pd
 import yaml
 import sys
+import configparser
 
-# configure
-for path in [os.path.join(os.path.expanduser("~"), ".xdrive"),
-             os.getcwd(),
-             os.path.join(sys.prefix, "etc", "xdrive")]:
+conf = dict()
+
+def configure():
+    """ runs on import and loads config """
+    global conf
+
+    # get xdrive config.yaml
+    for path in [os.path.join(os.path.expanduser("~"), ".xdrive"),
+                 os.getcwd(),
+                 os.path.join(sys.prefix, "etc", "xdrive")]:
+        try:
+            conf = yaml.load(open(os.path.join(path, "config.yaml")))
+            break
+        except:
+            pass
+
+    # get user and key
+    fab.env.user = conf["user"]
+    awsfolder = os.path.join(os.path.expanduser("~"), ".aws")
+    fab.env.key_filename = os.path.join(awsfolder, "key.pem")
+
+    # get aws region
+    config = configparser.ConfigParser()
     try:
-        conf = yaml.load(open(os.path.join(path, "config.yaml")))
-        break
-    except:
-        pass
-fab.env.user = conf["user"]
-fab.env.key_filename = os.path.join(os.path.expanduser("~"),
-                                    ".aws", "key.pem")
+        config.read(os.path.join(awsfolder, "config"))
+        awsregion = config["default"]["region"]
+    except Exception as e:
+        log.exception(e)
+        awsregion = "eu-west-1"
+    log.info(f"setting region to {region}")
+
+    # get amis from region
+    if awsregion not in conf["regions"]:
+        raise Exception(f"{awsregion} region not found")
+    amis = conf["regions"][awsregion]
+    if not amis["free"]:
+        raise Exception(f"{region} region has no amazon linux AMI available")
+    if not amis["gpu"]:
+        raise Exception(f"{region} region has no amazon/nvidia linux AMI available")
+
+    conf = dict(amis=amis, itypes=conf["itypes"])
 
 def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
                            spot=False):
     """ create instance and mount drive
-    
+
         name = name of instance
         itype = key for itypes dict parameter e.g. free, gpu
         bootsize = size of boot drive
@@ -43,7 +73,7 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
     if aws.get(name, aws.ec2.instances):
         raise Exception("instance %s already exists"%name)
     spec = dict(ImageId=conf["amis"]["free"],
-                    InstanceType=conf["itypes"]["free"], 
+                    InstanceType=conf["itypes"]["free"],
                     SecurityGroups=["simon"],
                     KeyName="key",
                     MinCount=1, MaxCount=1,
@@ -52,14 +82,14 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
     # instance type
     spec.update(InstanceType=conf["itypes"][itype],
                 ImageId=conf["amis"][itype])
-    
+
     # boot drive
     if bootsize:
         bdm = dict(DeviceName="/dev/xvda",
                    Ebs=dict(VolumeType="gp2",
                            VolumeSize=bootsize))
         spec["BlockDeviceMappings"].append(bdm)
-            
+
     # add drive to instance launch
     if drive:
         drive = Drive(drive)
@@ -72,7 +102,7 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         bdm = dict(DeviceName="/dev/xvdf",
                    Ebs=Ebs)
         spec["BlockDeviceMappings"].append(bdm)
-        
+
     # create spot or on-demand instance
     if spot:
         instance = create_spot(spec)
@@ -80,8 +110,8 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         instance = aws.ec2.create_instances(**spec)[0]
     aws.set_name(instance, name)
     log.info("waiting for instance running")
-    instance.wait_until_running()    
-    
+    instance.wait_until_running()
+
     # wait for ip address and ssh
     while True:
         if instance.public_ip_address:
@@ -98,14 +128,14 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         # set name
         for vol in instance.block_device_mappings:
             if vol["DeviceName"] == "/dev/xvdf":
-                aws.set_name(aws.ec2.Volume(vol["Ebs"]["VolumeId"]), 
+                aws.set_name(aws.ec2.Volume(vol["Ebs"]["VolumeId"]),
                                             drive.name)
                 break
         # if new volume then format
         if not latest_snapshot:
             drive.formatdisk()
         drive.mount()
-        
+
         # install docker
         apps.install_docker()
         apps.set_docker_folder("/v1")
@@ -113,10 +143,10 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
             apps.install_nvidia_docker()
         except:
             log.warning("failed to install nvidia-docker")
-        
+
     log.info("instance %s ready at %s"%(name, instance.public_ip_address))
     return instance
- 
+
 def create_spot(spec, spotprice=".25"):
     """ returns a spot instance
     """
@@ -129,7 +159,7 @@ def create_spot(spec, spotprice=".25"):
                     ["SpotInstanceRequests"] \
                     [0]['SpotInstanceRequestId']
     log.info("spot request submitted")
-    
+
     # wait for spot instance
     while True:
         # sometimes AWS gives a requestId but waiter says it does not exist
@@ -157,18 +187,18 @@ def spotcheck(requestId):
     while True:
         requests = aws.client.describe_spot_instance_requests \
                         (SpotInstanceRequestIds=[requestId])
-        
+
         # request already deleted
         try:
             request = requests['SpotInstanceRequests'][0]
         except:
             return
-        
+
         # instance already terminated
         instance = aws.ec2.Instance(request["InstanceId"])
         if instance.state["Name"] != "running":
             return
-        
+
         # instance marked for termination
         if request["Status"]["Code"] == "marked-for-termination":
             name = aws.get_name(instance)
@@ -176,7 +206,7 @@ def spotcheck(requestId):
                         "Attempting to terminate cleanly and save data.")
             terminate(instance)
             return
-        
+
         # amazon recommend poll every 5 seconds
         time.sleep(5)
 
@@ -197,9 +227,9 @@ def terminate(instance, save=True):
     """ terminate instance and save drive as snapshot """
     if isinstance(instance, str):
         instance = aws.get(instance)
-    
+
     apps.stop_docker()
-        
+
     # get the drive
     for bdm in instance.block_device_mappings:
         if bdm["DeviceName"] == "/dev/xvdf":
@@ -208,18 +238,18 @@ def terminate(instance, save=True):
             break
 
     drive.unmount()
-    
+
     # terminate instance before snapshot as instances are costly
     instance.terminate()
     aws.set_name(instance, "")
     log.info("instance terminated")
-    
+
     if save:
         drive.create_snapshot()
     # can still be attached even after instance terminated
     drive.detach()
     drive.delete_volume()
-     
+
 def get_tasks(target="python"):
     """ returns dataframe of tasks on server running inside docker containers
         where task contains target string
@@ -240,4 +270,6 @@ def get_tasks(target="python"):
             cout.append(container)
             tout.append(task)
     out = pd.DataFrame(dict(container=cout, task=tout))
-    return out 
+    return out
+
+configure()
