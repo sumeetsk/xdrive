@@ -95,7 +95,11 @@ def commit():
         
 def dangling():
     """ remove dangling docker images """
-    fab.run("docker rmi $(docker images -f dangling=true -q)")
+    return fab.run("docker rmi $(docker images -f dangling=true -q)")
+    
+def get_names():
+    """ gets list of container names """
+    return fab.run("docker inspect --format='{{.Name}}' $(docker ps -aq --no-trunc)")
 
 ##################### application scripts ###########################
 
