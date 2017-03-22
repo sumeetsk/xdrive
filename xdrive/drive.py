@@ -21,7 +21,13 @@ class Drive():
     def disconnect(self, save=True):
         """ disconnect cleanly and save to snapshot
         """
-        # if docker on xdrive then stop
+        if not save:
+            self.unmount()
+            self.detach()
+            self.delete_volume()
+            return
+        
+        # if docker on xdrive then commit and stop
         with fab.quiet():
             r = fab.get("/etc/docker/daemon.json", "_temp", use_sudo=True)
         if r.succeeded:
@@ -29,12 +35,10 @@ class Drive():
             folder = daemon["graph"]
             if folder.startswith("/v1"):
                 apps.commit()
-                apps.stop_docker()
-            
+
         self.unmount()
         self.detach()
-        if save:
-            self.create_snapshot()
+        self.create_snapshot()
         self.delete_volume()
         
 ######## lower level functions ############################

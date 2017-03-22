@@ -233,8 +233,8 @@ def terminate(instance, save=True):
     if isinstance(instance, str):
         instance = aws.get(instance)
 
-    apps.commit()
-    apps.stop_docker()
+    if save:
+        apps.commit()
 
     # get the drive
     for bdm in instance.block_device_mappings:
@@ -252,7 +252,8 @@ def terminate(instance, save=True):
 
     if save:
         drive.create_snapshot()
-    # can still be attached even after instance terminated
+    
+    # note can still be attached even after instance terminated
     drive.detach()
     drive.delete_volume()
 
