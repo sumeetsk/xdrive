@@ -159,8 +159,12 @@ class Drive():
         log.info("waiting for snapshot. this can take 15 minutes."\
                                               "Have a cup of tea.")
         while True:
-            item = aws.client.describe_snapshots(
-                        SnapshotIds=[snap.id])["Snapshots"][0]
+            try:
+                item = aws.client.describe_snapshots(
+                            SnapshotIds=[snap.id])["Snapshots"][0]
+            except:
+                # may delete snapshot via menus
+                break
             if item["State"] == "completed":
                 break
             log.info("%s snapshot completed"%item["Progress"])
