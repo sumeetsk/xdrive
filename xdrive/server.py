@@ -35,6 +35,11 @@ def configure():
             pass
 
     # get user and key
+    try:
+        # default is first ip address on account
+        fab.env.host_string = aws.get_ips()[0]
+    except:
+        pass
     fab.env.user = conf["user"]
     awsfolder = os.path.join(os.path.expanduser("~"), ".aws")
     fab.env.key_filename = os.path.join(awsfolder, "key.pem")
@@ -228,6 +233,7 @@ def terminate(instance, save=True):
     if isinstance(instance, str):
         instance = aws.get(instance)
 
+    apps.commit()
     apps.stop_docker()
 
     # get the drive
