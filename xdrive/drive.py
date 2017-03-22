@@ -28,6 +28,7 @@ class Drive():
             daemon = json.load(open("_temp"))
             folder = daemon["graph"]
             if folder.startswith("/v1"):
+                apps.commit()
                 apps.stop_docker()
             
         self.unmount()
