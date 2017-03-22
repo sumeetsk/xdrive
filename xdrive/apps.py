@@ -7,6 +7,7 @@ NOTE: This is a set of functions not a class
 import logging as log
 import os
 import io
+import json
 
 import fabric.api as fab
 from fabric.state import connections
@@ -14,7 +15,7 @@ from fabric.state import connections
 ################ needed for xdrive ######################
 
 def install_docker():
-    # docker
+    # docker. note closes connection to set new permissions.
     fab.sudo("yum install docker -y -q")
     fab.sudo("usermod -aG docker %s"%fab.env.user)
     connections[fab.env.host_string].get_transport().close() 
@@ -25,7 +26,10 @@ def install_docker():
              "as this shows progress whereas fabric does not")
 
 def install_nvidia_docker():
-    # nvidia docker (NOTE: use instructions for "other" NOT "centos")
+    """ install nvidia_docker and plugin
+    NOTE: uses instructions for "other" NOT "centos" as this fails
+    """
+    # only needed on GPU
     with fab.quiet():
         r = fab.run("nvidia-smi")
         if r.failed:
@@ -40,7 +44,9 @@ def install_nvidia_docker():
     
     # NOTE fab.run used as fab.sudo command does not accept -b option
     # -b for background. nohup for run forever.
-    # -d is data location
+    # -d is data volumes for drivers. was used to stop/start containers on GPUs
+    # -d unnecessary now commit/run used rather than stop/start???????
+    # commit/run enables reuse of containers across CPUs and GPUs
     fab.run("sudo -b nohup nvidia-docker-plugin -d /v1/nvidia-docker/volumes")
     log.info("nvidia-docker-plugin is running")
     
@@ -66,45 +72,52 @@ def stop_docker():
         fab.run("docker ps -aq | xargs docker stop")
         fab.sudo("service docker stop")
         log.info("docker stopped")
-        
-##################### needed for fastai ###########################
 
-def run_fastai(py=3):
-    """ runs fastai notebook for the first time (after that it restarts)
-        note: -d=daemon so task returns
-        set py=2 for python2
+def commit():
+    """ commit all containers to images; and remove containers
+    nvidia-docker looks for drivers when "run"
+    therefore use commit/run rather than stop/start
     """
-    if py==3:
-        py = ""
-    
-    # if already exists then start
-    with fab.quiet():
-        r = fab.run(f"docker ps -a | grep fastai{py}")
-    if r.succeeded:
-        fab.run("docker start fastai{py}")
-        return
-    
+    containers = fab.run("docker ps -aq").split()
+
+    for container in containers:
+        # get container metadata
+        r = fab.run(f"docker inspect {container}")
+        c = json.loads(r)[0]
+        id = c["Id"]
+        image = c["Config"]["Image"]
+
+        # commit to image
+        fab.run(f"docker commit {id} {image}")
+
+        # remove
+        fab.run(f"docker rm -f {id}")
+        
+def dangling():
+    """ remove dangling docker images """
+    fab.run("docker rmi $(docker images -f 'dangling=true; -q)")
+     
+##################### application scripts ###########################
+
+def run_fastai():
+    """ run fastai notebook
+        note: -d=daemon so task returns
+    """
     with fab.quiet():
         r = fab.sudo("nvidia-smi")
     docker = "nvidia-docker" if  r.succeeded else "docker"
 
-    # /v1/nbs is working copy and home folder
+    # /v1/nbs is home folder
     fab.run("mkdir -p /v1/nbs")
     
     fab.run("{docker} run "\
               "-v /v1:/v1 "\
              "-w /v1/nbs "\
              "-p 8888:8888 -d "\
-             "--restart=always "\
-             "--name fastai{py} "\
+             "--name fastai "\
              "simonm3/fastai".format(**locals()))
     
-    # create working copy of nbs in /v1/nbs
-    fab.run(f"docker cp fastai{py}:/fastai-courses/deeplearning1/nbs/. /v1/nbs{py}")
-    
-    log.info("fastai%s running on %s:%s"%(py, fab.env.host_string, "8888"))
- 
-###### install other projects in docker containers #########
+    log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
     
 def install_github(owner, projects):
     """ install github projects or project (if string passed) """
@@ -139,9 +152,7 @@ def install_python(projects, home="/v1"):
         
         # run project
         fab.run(f"docker exec {project} {project}")
-        
-#### install on host ################################################  
-    
+            
 def install_wordpress():
     fab.run("mkdir wordpress || true")
     fab.put("../wordpress/docker-compose.yml", "wordpress")
