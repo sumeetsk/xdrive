@@ -17,6 +17,7 @@ import pandas as pd
 import yaml
 import sys
 import configparser
+import pyperclip
 
 conf = dict()
 
@@ -38,6 +39,7 @@ def configure():
     try:
         # default is first ip address on account
         fab.env.host_string = aws.get_ips()[0]
+        pyperclip.copy(fab.env.host_string)
     except:
         pass
     fab.env.user = conf["user"]
@@ -124,8 +126,10 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         log.info("awaiting IP address")
         sleep(1)
         instance.load()
-    log.info("instance %s running at %s"%(name, instance.public_ip_address))
     fab.env.host_string = instance.public_ip_address
+    pyperclip.copy(fab.env.host_string)
+    log.info("instance %s running at %s which is in the clipboard)"
+                         %(name, instance.public_ip_address))
     wait_ssh()
 
     # prepare drive
@@ -149,7 +153,8 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         except:
             log.warning("failed to install nvidia-docker")
 
-    log.info("instance %s ready at %s"%(name, instance.public_ip_address))
+    log.info("instance %s ready at %s which is in the clipboard"
+                                     %(name, instance.public_ip_address))
     return instance
 
 def create_spot(spec, spotprice=".25"):
