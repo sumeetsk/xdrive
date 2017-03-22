@@ -68,10 +68,11 @@ def stop_docker():
         log.info("docker stopped")
         
 ##################### needed for fastai ###########################
-        
-def run_fastai():
+
+def run_fastai(py=3):
     """ runs fastai notebook for the first time (after that it restarts)
         note: -d=daemon so task returns
+        set py=2 for python2
     """
     # if already exists then start
     with fab.quiet():
@@ -86,13 +87,13 @@ def run_fastai():
 
     # /v1/nbs is working copy and home folder
     fab.run("mkdir -p /v1/nbs")
-        
+    
     fab.run("{docker} run "\
               "-v /v1:/v1 "\
              "-w /v1/nbs "\
              "-p 8888:8888 -d "\
              "--restart=always "\
-             "--name fastai "\
+             "--name fastai{py}"\
              "simonm3/fastai".format(**locals()))
     
     # create working copy of nbs in /v1/nbs
