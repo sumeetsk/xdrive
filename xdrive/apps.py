@@ -74,11 +74,14 @@ def run_fastai(py=3):
         note: -d=daemon so task returns
         set py=2 for python2
     """
+    if py==3:
+        py = ""
+    
     # if already exists then start
     with fab.quiet():
-        r = fab.run("docker ps -a | grep fastai")
+        r = fab.run(f"docker ps -a | grep fastai{py}")
     if r.succeeded:
-        fab.run("docker start fastai")
+        fab.run("docker start fastai{py}")
         return
     
     with fab.quiet():
@@ -93,13 +96,13 @@ def run_fastai(py=3):
              "-w /v1/nbs "\
              "-p 8888:8888 -d "\
              "--restart=always "\
-             "--name fastai{py}"\
+             "--name fastai{py} "\
              "simonm3/fastai".format(**locals()))
     
     # create working copy of nbs in /v1/nbs
-    fab.run("docker cp fastai:/fastai-courses/deeplearning1/nbs /v1")
+    fab.run(f"docker cp fastai{py}:/fastai-courses/deeplearning1/nbs/. /v1/nbs{py}")
     
-    log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
+    log.info("fastai%s running on %s:%s"%(py, fab.env.host_string, "8888"))
  
 ###### install other projects in docker containers #########
     
