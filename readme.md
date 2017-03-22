@@ -1,11 +1,12 @@
 **Currently testing some changes. Will remove this notice when complete**:
 
-* simplified configuration
-* xdriveclient in a container. this is cleaner as it eliminates any conflict 
-with local settings
+* Fixed some bugs
+* Eliminated configuration except AWS config/creds
 * Terminates server when amazon issues termination notice. Not tested but not
 critical as volume is retained anyway and can be saved manually.
-* End to end test and fix a number of bugs
+* Replaced AWS waiters with loops as former sometimes have timeouts
+* Added option for python2.7
+* xdriveclient in a container as alternative to install
 
 ## Portable drive that can be moved between AWS instances
 
@@ -22,16 +23,10 @@ Pre-requisites
 * open AWS account 
 * add AWS config and AWS credentials to ~/.aws
 
-Run xdrive in a container (using ~/.aws and ~/.xdrive/config.yaml)
-* download https://raw.githubusercontent.com/simonm3/xdrive/master/xdriveclient.py
-* python xdriveclient.py
-* open browser at localhost:8888
-* open examples.ipynb
-
-Install locally (if you don't want to run in a container)
+Install locally
 * pip install xdrive
 * download https://raw.githubusercontent.com/simonm3/xdrive/master/examples.ipynb
-* open browser at localhost:8888
+* open browser in jupyter at localhost:8888
 * open examples.ipynb
 
 View the source
@@ -41,12 +36,6 @@ View the source
 
 * If notebook says "Connection reset by peer" then just rerun the cell. If you
 know how I can stop this then please let me know.
-* If you run xdrive in a container this means you have four machines running.
-If you get problems then first check which machine you are using!
-    - Your laptop
-    - xdrive container on your laptop running notebook server
-    - Amazon instance
-    - fastai (or other) container on the amazon instance running notebook server
 
 ## Benefits
 
@@ -72,6 +61,22 @@ available
   - You need to manually dismount volumes and save to snapshots if required
 * There is a recent package that implements a portable boot drive
   - Not tried this yet
+
+## Running xdrive in a container
+
+Have done this but not sure of the benefit? It still uses ~/.aws and 
+~/.xdrive/config.yaml)
+* download https://raw.githubusercontent.com/simonm3/xdrive/master/xdriveclient.py
+* python xdriveclient.py
+* open browser at localhost:8888
+* open examples.ipynb
+
+If you run xdrive in a container this means you have four machines running.
+If you get problems then first check which machine you are using!
+* Your laptop
+* xdrive container on your laptop running notebook server
+* Amazon instance
+* fastai (or other) container on the amazon instance running notebook server
 
 ## Notes
 
