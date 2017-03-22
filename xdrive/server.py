@@ -37,9 +37,11 @@ def configure():
 
     # get user and key
     try:
-        # default is first ip address on account
-        fab.env.host_string = aws.get_ips()[0]
-        pyperclip.copy(fab.env.host_string)
+        # if not already set then use first ip address on account
+        if not fab.env.host_string:
+            fab.env.host_string = aws.get_ips()[0]
+            pyperclip.copy(fab.env.host_string)
+            log.info("%s put on clipboard and for fabric"%fab.env.host_string)
     except:
         pass
     fab.env.user = conf["user"]
