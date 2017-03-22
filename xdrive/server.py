@@ -47,16 +47,16 @@ def configure():
     except Exception as e:
         log.exception(e)
         awsregion = "eu-west-1"
-    log.info(f"setting region to {region}")
+    log.info(f"setting region to {awsregion}")
 
     # get amis from region
     if awsregion not in conf["regions"]:
         raise Exception(f"{awsregion} region not found")
     amis = conf["regions"][awsregion]
     if not amis["free"]:
-        raise Exception(f"{region} region has no amazon linux AMI available")
+        raise Exception(f"{awsregion} region has no amazon linux AMI available")
     if not amis["gpu"]:
-        raise Exception(f"{region} region has no amazon/nvidia linux AMI available")
+        raise Exception(f"{awsregion} region has no amazon/nvidia linux AMI available")
 
     conf = dict(amis=amis, itypes=conf["itypes"])
 
