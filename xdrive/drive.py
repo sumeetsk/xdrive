@@ -168,8 +168,12 @@ class Drive():
 
         log.info("deleting volume")
         while True:
-            item = aws.client.describe_volumes(
-                        VolumeIds=[volume.id])["Volumes"][0]
+            try:
+                item = aws.client.describe_volumes(
+                            VolumeIds=[volume.id])["Volumes"][0]
+            except:
+                # volume can be deleted before state set to deleted
+                break
             if item["State"] == "deleted":
                 break
             log.info("waiting for volume to be deleted")
