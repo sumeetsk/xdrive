@@ -47,7 +47,7 @@ def install_nvidia_docker():
     # -d is data volumes for drivers. was used to stop/start containers on GPUs
     # -d unnecessary now commit/run used rather than stop/start???????
     # commit/run enables reuse of containers across CPUs and GPUs
-    fab.run("sudo -b nohup nvidia-docker-plugin -d /v1/nvidia-docker/volumes")
+    fab.run("sudo -b nohup nvidia-docker-plugin")
     log.info("nvidia-docker-plugin is running")
     
 def set_docker_folder(folder="/var/lib"):
@@ -95,8 +95,8 @@ def commit():
         
 def dangling():
     """ remove dangling docker images """
-    fab.run("docker rmi $(docker images -f 'dangling=true; -q)")
-     
+    fab.run("docker rmi $(docker images -f dangling=true -q)")
+
 ##################### application scripts ###########################
 
 def run_fastai():
