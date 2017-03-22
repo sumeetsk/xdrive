@@ -82,16 +82,16 @@ def commit():
 
     for container in containers:
         # get container metadata
-        r = fab.run(f"docker inspect {container}")
+        with fab.quiet():
+            r = fab.run(f"docker inspect {container}")
         c = json.loads(r)[0]
-        id = c["Id"]
         image = c["Config"]["Image"]
 
         # commit to image
-        fab.run(f"docker commit {id} {image}")
+        fab.run(f"docker commit {container} {image}")
 
         # remove
-        fab.run(f"docker rm -f {id}")
+        fab.run(f"docker rm -f {container}")
         
 def dangling():
     """ remove dangling docker images """
