@@ -8,6 +8,9 @@ import logging as log
 import os
 import io
 import json
+import requests
+from time import sleep
+
 
 import fabric.api as fab
 from fabric.state import connections
@@ -121,7 +124,16 @@ def run_fastai():
              "--name fastai "\
              "simonm3/fastai".format(**locals()))
     
-    log.info("fastai running on %s:%s"%(fab.env.host_string, "8888"))
+    log.info("waiting for jupyter notebook server")
+    while True:
+        try:
+            r=requests.get(f"http://{fab.env.host_string}:8888")
+            if r.status_code==200:
+                break
+        except:
+            pass
+        sleep(5)
+    log.info(f"notebook running on {fab.env.host_string}:8888")
     
 def install_github(owner, projects):
     """ install github projects or project (if string passed) """
