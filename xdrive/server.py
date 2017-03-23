@@ -130,7 +130,7 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         instance.load()
     fab.env.host_string = instance.public_ip_address
     pyperclip.copy(fab.env.host_string)
-    log.info("instance %s running at %s which is in the clipboard)"
+    log.info("instance %s running at %s (clipboard)"
                          %(name, instance.public_ip_address))
     wait_ssh()
 
@@ -155,7 +155,7 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         except:
             log.warning("failed to install nvidia-docker")
 
-    log.info("instance %s ready at %s which is in the clipboard"
+    log.info("instance %s ready at %s (clipboard)"
                                      %(name, instance.public_ip_address))
     return instance
 
@@ -170,22 +170,21 @@ def create_spot(spec, spotprice=".25"):
                      LaunchSpecification=spec) \
                     ["SpotInstanceRequests"] \
                     [0]['SpotInstanceRequestId']
-    log.info("spot request submitted")
-
+    
     # wait for spot instance
+    log.info("waiting for spot instance")
     while True:
         # sometimes AWS gives a requestId but waiter says it does not exist
         try:
-            aws.client.get_waiter("spot_instance_request_fulfilled") \
-                                .wait(SpotInstanceRequestIds=[requestId])
-            break
+            instanceId = aws.client.describe_spot_instance_requests \
+                (SpotInstanceRequestIds=[requestId]) \
+                ['SpotInstanceRequests'][0] \
+                ['InstanceId']
+            if instanceId:
+                break
         except:
-            log.warning("waiting for request id")
-            sleep(1)
-    instanceId = aws.client.describe_spot_instance_requests \
-                    (SpotInstanceRequestIds=[requestId]) \
-                    ['SpotInstanceRequests'][0] \
-                    ['InstanceId']
+            pass
+        sleep(15)
     log.info("spot request fulfilled %s"%instanceId)
 
     # start thread to poll for AWS termination notice
@@ -240,16 +239,21 @@ def terminate(instance, save=True):
     if isinstance(instance, str):
         instance = aws.get(instance)
 
-    if save:
-        apps.commit()
-
     # get the drive
+    drive = None
     for bdm in instance.block_device_mappings:
         if bdm["DeviceName"] == "/dev/xvdf":
             volume = aws.ec2.Volume(bdm["Ebs"]["VolumeId"])
             drive = Drive(aws.get_name(volume))
             break
 
+    if not drive:
+        instance.terminate()
+        aws.set_name(instance, "")
+        log.info("instance terminated")
+        return
+        
+    apps.stop_docker()
     drive.unmount()
 
     # terminate instance before snapshot as instances are costly
