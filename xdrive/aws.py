@@ -9,6 +9,9 @@ NOTE: This is a set of functions not a class
 import logging as log
 import pandas as pd
 import boto3
+import fabric.api as fab
+from time import sleep
+import pyperclip
 
 ### connection #############################################################
 
@@ -68,6 +71,28 @@ def get(name=None, collections=None, unique=True):
         raise Exception("More than one resource found:\n%s"%reslist)
     return reslist
 
+def associate_address(instance, ip=None):
+    """ associates instance with ip address """
+    if isinstance(instance, str):
+        instance = get(instance)
+    
+    if ip == None:
+        ip = get_ip()
+    
+    fab.env.host_string = ip
+    pyperclip.copy(fab.env.host_string)
+
+    # associate elastic ip
+    client.associate_address(InstanceId=instance.id, PublicIp=ip)
+    while True:
+        instance = ec2.Instance(instance.id)
+        if instance.public_ip_address == ip:
+            break
+        log.info("waiting for ip address to be associated")
+        sleep(2)
+    name = get_name(instance)
+    log.info(f"{name} ready at {fab.env.host_string} (clipboard)")
+
 ### get all resources ####################################################
 
 def get_instances():
@@ -83,3 +108,6 @@ def get_instances():
 def get_ips():
     """ get list of elastic ips """
     return [ip["PublicIp"] for ip in client.describe_addresses()["Addresses"]]
+
+def get_ip():
+    return get_ips()[0]
