@@ -10,12 +10,12 @@ import io
 import json
 import requests
 from time import sleep
-
+import pyperclip
 
 import fabric.api as fab
 from fabric.state import connections
 
-################ needed for xdrive ######################
+################ xdrive functions ######################
 
 def install_docker():
     # docker. note closes connection to set new permissions.
@@ -45,12 +45,20 @@ def install_nvidia_docker():
             "/usr/bin -xvf /tmp/nvidia-docker*.tar.xz "\
             "&& rm /tmp/nvidia-docker*.tar.xz")
     
+    # if drivers exist then -d=/v1/driver/folder.
+    # better to keep on /v1 as copying to boot drive takes several seconds
+    volumepath = "/v1/var/lib/nvidia-docker/volumes"
+    if os.path.exists(volumepath):
+        volumepath = "-d {volumepath}"
+    else:
+        # if not then -d must be left blank until created by nvidia-docker run
+        volumepath = ""
+
     # NOTE fab.run used as fab.sudo command does not accept -b option
     # -b for background. nohup for run forever.
-    # -d is data volumes for drivers. was used to stop/start containers on GPUs
-    # -d unnecessary now commit/run used rather than stop/start???????
-    # commit/run enables reuse of containers across CPUs and GPUs
-    fab.run("sudo -b nohup nvidia-docker-plugin")
+    # -s must be left blank for /run/docker/plugins NOT moved to /v1
+    fab.run("sudo -b nohup nvidia-docker-plugin "\
+            "{volumepath}".format(**locals()))
     log.info("nvidia-docker-plugin is running")
     
 def set_docker_folder(folder="/var/lib"):
@@ -76,25 +84,17 @@ def stop_docker():
         fab.sudo("service docker stop")
         log.info("docker stopped")
 
-def commit():
-    """ commit all containers to images; and remove containers
-    nvidia-docker looks for drivers when "run"
-    therefore use commit/run rather than stop/start
-    """
-    containers = fab.run("docker ps -aq").split()
+def commit(container):
+    """ commits to image and deletes container """
+    # get container metadata
+    with fab.quiet():
+        r = fab.run(f"docker inspect {container}")
+    c = json.loads(r)[0]
+    image = c["Config"]["Image"]
 
-    for container in containers:
-        # get container metadata
-        with fab.quiet():
-            r = fab.run(f"docker inspect {container}")
-        c = json.loads(r)[0]
-        image = c["Config"]["Image"]
-
-        # commit to image
-        fab.run(f"docker commit {container} {image}")
-
-        # remove
-        fab.run(f"docker rm -f {container}")
+    # commit to image and remove
+    fab.run(f"docker commit {container} {image}")
+    fab.run(f"docker rm -f {container}")
         
 def dangling():
     """ remove dangling docker images """
@@ -104,26 +104,24 @@ def get_names():
     """ gets list of container names """
     return fab.run("docker inspect --format='{{.Name}}' $(docker ps -aq --no-trunc)")
 
-##################### application scripts ###########################
-
-def run_fastai():
-    """ run fastai notebook
-        note: -d=daemon so task returns
-    """
+def run(params):
+    """ run container """
     with fab.quiet():
         r = fab.sudo("nvidia-smi")
-    docker = "nvidia-docker" if  r.succeeded else "docker"
 
-    # /v1/nbs is home folder
-    fab.run("mkdir -p /v1/nbs")
-    
-    fab.run("{docker} run "\
-              "-v /v1:/v1 "\
-             "-w /v1/nbs "\
-             "-p 8888:8888 -d "\
-             "--name fastai "\
-             "simonm3/fastai".format(**locals()))
-    
+    # gpu
+    if r.succeeded:
+        # nvidia-docker run and save drivers
+        fab.run(f"nvidia-docker run {params}")
+        volumepath = "/v1/var/lib/nvidia-docker/volumes"
+        if not os.path.exists(volumepath):
+            fab.sudo("cp -r --parents /var/lib/nvidia-docker/volumes /v1")
+    else:
+        # cpu
+        fab.run(f"docker run {params}")
+
+def wait_notebook():
+    """ wait for notebook server """
     log.info("waiting for jupyter notebook server")
     while True:
         try:
@@ -133,7 +131,30 @@ def run_fastai():
         except:
             pass
         sleep(5)
-    log.info(f"notebook running on {fab.env.host_string}:8888")
+    ip = f"{fab.env.host_string}:8888"
+    pyperclip.copy(ip)
+    log.info(f"notebook running on {ip} (clipboard)")
+
+############ fastai specific #################################
+
+def start_fastai():
+    fab.run(f"docker start fastai")
+    wait_notebook()
+
+def run_fastai():
+    """ run fastai in container """
+    params = "-v /v1:/v1 "\
+             "-w /v1/nbs "\
+             "-p 8888:8888 -d "\
+             "--name fastai "\
+             "simonm3/fastai"
+    
+    # /v1/nbs is home folder
+    fab.run("mkdir -p /v1/nbs")
+    run(params)
+    wait_notebook()
+    
+################## other applications ###############
     
 def install_github(owner, projects):
     """ install github projects or project (if string passed) """
