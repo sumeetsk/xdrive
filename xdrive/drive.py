@@ -27,14 +27,14 @@ class Drive():
             self.delete_volume()
             return
         
-        # if docker on xdrive then commit and stop
+        # if docker on xdrive then stop
         with fab.quiet():
             r = fab.get("/etc/docker/daemon.json", "_temp", use_sudo=True)
         if r.succeeded:
             daemon = json.load(open("_temp"))
             folder = daemon["graph"]
             if folder.startswith("/v1"):
-                apps.commit()
+                apps.stop_docker()
 
         self.unmount()
         self.detach()
@@ -49,8 +49,7 @@ class Drive():
             instance = aws.get(instance, collections=aws.ec2.instances)
 
         fab.env.host_string = instance.public_ip_address
-        fab.env.user = user
-        
+        fab.env.user = user        
         volume = aws.get(self.name, collections=aws.ec2.volumes)
 
         if volume:
@@ -168,7 +167,7 @@ class Drive():
             if item["State"] == "completed":
                 break
             log.info("%s snapshot completed"%item["Progress"])
-            sleep(15)
+            sleep(60)
         log.info("snapshot completed")
     
     def delete_volume(self):
@@ -200,4 +199,3 @@ class Drive():
             snapshots = sorted(snapshots, 
                                key=lambda s:s.start_time, reverse=True)
             return snapshots[0]
-        log.warning("no snapshots found. creating new volume %s"%self.name)
