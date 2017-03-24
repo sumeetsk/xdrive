@@ -26,21 +26,23 @@ def get_tags(res):
     return {tag["Key"]:tag["Value"] for tag in tags}
         
 def get_tag(res, key):
+    """ return tag from resource/key """
     return get_tags(res).get(key, "")
 
 def set_tag(res, key, value):
+    """ set tag from resource/key/value """
     res.create_tags(Tags=[dict(Key=key, Value=value)])
     
 def get_name(res):
-    """ Name is used to identify resources as alternative to id """
+    """ return name from resource. more friendly than using id """
     return get_tag(res, "Name")
     
 def set_name(res, value):
-    """ Name is used to identify resources as alternative to id """
+    """ set name for resource. more friendly than using id """
     set_tag(res, "Name", value)
 
 def get(name=None, collections=None, unique=True):
-    """ get resources by name
+    """ get resource by name
         if unique=True then raise exception if more than one
         if name=None then gets all resources
         collections can be collection or list of collections
