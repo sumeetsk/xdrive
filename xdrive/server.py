@@ -266,8 +266,6 @@ def terminate(instance, save=True):
     
     # note can still be attached even after instance terminated
     drive.detach()
-    # release name so can be used before delete complete
-    aws.set_name(volume, "")
     drive.delete_volume()
 
 def get_tasks(target="python"):
