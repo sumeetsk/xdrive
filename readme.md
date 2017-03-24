@@ -1,13 +1,3 @@
-**Currently testing some changes. Will remove this notice when complete**:
-
-* Fixed some bugs
-* Eliminated configuration except AWS config/creds
-* Terminates server when amazon issues termination notice. Not tested but not
-critical as volume is retained anyway and can be saved manually.
-* Replaced AWS waiters with loops as former sometimes have timeouts
-* Added option for python2.7
-* xdriveclient in a container as alternative to install
-
 ## Portable drive that can be moved between AWS instances
 
 This package puts programs and data on an external drive rather than an the  
@@ -22,6 +12,7 @@ parallel.
 Pre-requisites
 * open AWS account 
 * add AWS config and AWS credentials to ~/.aws
+* It will automatically select AMIs based on AWS config default region
 
 Install locally
 * pip install xdrive
@@ -32,11 +23,25 @@ Install locally
 View the source
 * https://github.com/simonm3/xdrive
 
-## Issues
+## Potential issues and responses
 
-* If notebook says "Connection reset by peer" then just rerun the cell. If you
-know how I can stop this then please let me know.
-
+* If notebook says "Connection reset by peer":
+   - just rerun the cell
+* When a termination notice is received from AWS this gives 2 minutes warning.
+This should be enough but if shutdown takes longer then:
+   - manually save the volume as a snapshot
+   - give the snapshot the name of the volume
+   - delete the volume.
+* You can move a container between GPUs but not from CPU to GPU. If you really 
+need to move from CPU to GPU then these are the steps, though it can take some
+time:
+   - docker commit the container to an image
+   - nvidia-docker run --name <container> <image>
+* Terminating server/drive at the same time works well. However disconnecting 
+from a running instance can fail silently:
+   - Double check AWS console to make sure no orphaned volumes
+   - If necessary force detach/delete or save snapshot manually
+   
 ## Benefits
 
 * Saves 100% of the cost of setting up data and programs. Free tier instances
@@ -62,22 +67,6 @@ available
 * There is a recent package that implements a portable boot drive
   - Not tried this yet
 
-## Running xdrive in a container
-
-Have done this but not sure of the benefit? It still uses ~/.aws and 
-~/.xdrive/config.yaml)
-* download https://raw.githubusercontent.com/simonm3/xdrive/master/xdriveclient.py
-* python xdriveclient.py
-* open browser at localhost:8888
-* open examples.ipynb
-
-If you run xdrive in a container this means you have four machines running.
-If you get problems then first check which machine you are using!
-* Your laptop
-* xdrive container on your laptop running notebook server
-* Amazon instance
-* fastai (or other) container on the amazon instance running notebook server
-
 ## Notes
 
 #### What is wrong with spot instances?
@@ -92,23 +81,29 @@ The lack of persistent storage makes spot instances impractical for long
 running processes; where setup requires significant time installing packages 
 and downloading data.
     
-#### How does this package provide persistent storage?
+#### How does this provide persistent storage?
 
 * xdrive volume is created based on most recent snapshot (or empty volume)
 * xdrive is mounted as /v1
-* on termination by user xdrive volume is saved to a snapshot
-* on termination of spot instance by amazon volume is saved to a snapshot. Note
-this needs testing. If it fails then data volume remains and can be saved 
-manually to a snapshot.
+* on termination by user or amazon, containers are committed as images;
+volume is saved to a snapshot; and volume is then deleted.
 * all snapshots are retained until manually deleted
 * xdrive volume and snapshots are linked via a "name" tag
 
 #### How are program settings retained?
 
 * programs run in a docker container
-* xdrive holds the database of docker containers
-* boot volume runs a simple AMI such as the amazon linux AMI
-* nvidia-docker runs the docker container on the xdrive volume
+* on the GPU this uses nvidia-docker which detects the drivers on run
+* on termination all containers are committed as images. This allows them to
+be run on GPUs and CPUs
+* xdrive holds the database of docker images
+
+#### Why use Amazon linux AMI?
+
+* All the hard work happens in docker containers
+* The CPU version should be as simple as possible but available in all regions
+* The GPU version should be similar but with GPU drivers installed
+* Note it is centos based using yum instead of apt-get
 
 #### Why snapshots?
 
@@ -118,6 +113,13 @@ manually to a snapshot.
                                             would need to be in same zone)
 
 #### Differences to fastai AMI
+
 * Uses python3
 * Uses nvidia version 7.5
 * Notebooks are on /v1 outside the container
+
+### How could you use python2
+
+* Build fastai docker image with parameter py=2
+* Write a script based on apps.run_fastai()
+* I think that is it but would need testing!
