@@ -14,13 +14,14 @@ import pyperclip
 
 import fabric.api as fab
 from fabric.state import connections
+from fabric.contrib.files import exists
 
 ################ xdrive functions ######################
 
 def install_docker():
     # docker. note closes connection to set new permissions.
     fab.sudo("yum install docker -y -q")
-    fab.sudo("usermod -aG docker %s"%fab.env.user)
+    fab.sudo(f"usermod -aG docker {fab.env.user}")
     connections[fab.env.host_string].get_transport().close() 
     
     # docker compose
@@ -48,8 +49,8 @@ def install_nvidia_docker():
     # if drivers exist then -d=/v1/driver/folder.
     # better to keep on /v1 as copying to boot drive takes several seconds
     volumepath = "/v1/var/lib/nvidia-docker/volumes"
-    if os.path.exists(volumepath):
-        volumepath = "-d {volumepath}"
+    if exists(volumepath):
+        volumepath = f"-d {volumepath}"
     else:
         # if not then -d must be left blank until created by nvidia-docker run
         volumepath = ""
@@ -57,8 +58,7 @@ def install_nvidia_docker():
     # NOTE fab.run used as fab.sudo command does not accept -b option
     # -b for background. nohup for run forever.
     # -s must be left blank for /run/docker/plugins NOT moved to /v1
-    fab.run("sudo -b nohup nvidia-docker-plugin "\
-            "{volumepath}".format(**locals()))
+    fab.run(f"sudo -b nohup nvidia-docker-plugin {volumepath}")
     log.info("nvidia-docker-plugin is running")
     
 def set_docker_folder(folder="/var/lib"):
@@ -71,7 +71,7 @@ def set_docker_folder(folder="/var/lib"):
     fab.put(io.StringIO(config), "/etc/docker/daemon.json", use_sudo=True)
     
     # create target folder
-    fab.sudo("mkdir -p %s/docker"%folder)
+    fab.sudo(f"mkdir -p {folder}/docker")
     
     # restart to activate new target folder
     with fab.quiet():
@@ -114,7 +114,7 @@ def run(params):
         # nvidia-docker run and save drivers
         fab.run(f"nvidia-docker run {params}")
         volumepath = "/v1/var/lib/nvidia-docker/volumes"
-        if not os.path.exists(volumepath):
+        if exists(volumepath):
             fab.sudo("cp -r --parents /var/lib/nvidia-docker/volumes /v1")
     else:
         # cpu
@@ -207,4 +207,4 @@ def install_kaggle(user, password):
     """
     fab.sudo("sudo yum install -y libxml2-devel libxslt-devel")
     fab.sudo("pip install kaggle-cli")
-    fab.run("kg config -u %s -p %s"%(user, password))
+    fab.run(f"kg config -u {user} -p {password}")
