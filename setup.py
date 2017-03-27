@@ -11,15 +11,14 @@ params = dict(
     description='Portable drive that can be moved between AWS instances',
     version='2.0.0',
     url='https://github.com/simonm3/xdrive.git',
-    install_requires=['Fabric3', 'requests', 'boto3',
-                      'PyYAML', 'Fabric', 'pyperclip', 'pandas'],
+    install_requires=['PyYAML', 'pyperclip', 'requests',
+                      'boto3', 'pandas', 'Fabric', 'Fabric3'],
     packages=['xdrive'],
     data_files=[('./etc/xdrive', ['licence.txt', 'readme.md',
-                                  'config.yaml', 'examples.ipynb', 'version'])],
+                                  'version', 'examples.ipynb', 'config.yaml'])],
     py_modules=[],
     include_package_data=True,
-    scripts=None,
-    setup_requires=['setuptools_git >= 0.3'])
+    scripts=None)
 
 ########## EDIT BELOW THIS LINE ONLY ##########
 
