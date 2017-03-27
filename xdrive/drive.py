@@ -174,7 +174,6 @@ class Drive():
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         volume.delete()
 
-        log.info("deleting volume")
         while True:
             try:
                 item = aws.client.describe_volumes(
