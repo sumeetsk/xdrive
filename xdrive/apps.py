@@ -168,27 +168,29 @@ def install_github(owner, projects):
     for project in projects:
         fab.run(getgit.format(owner=owner, project=project))
 
-def install_python(projects, home="/v1"):
-    """ installs and runs python project in docker container as root user
+def install_python(project, configs=None):
+    """ installs and runs python project in docker container
     """
-    if isinstance(projects, str):
-        projects = [projects]
-    for project in projects:
-        # copy ~/.project config settings
-        with fab.cd(home):
-            fab.put(os.path.join(os.path.expanduser("~"), "."+project))
-        
-        # remove existing container
+    # cleanup params
+    if not configs:
+        configs = []
+    if isinstance(configs, str):
+        configs = [configs]
+    
+    # remove container and create fresh one
+    with fab.quiet():
         fab.run(f"docker rm -f {project}")
-        
-        # run container with home folder for config and creds
-        fab.run(f"docker run -v {home}:/root --name {project} -di python")
-        
-        # install project from pypi
-        fab.run(f"docker exec {project} pip install {project}")
-        
-        # run project
-        fab.run(f"docker exec {project} {project}")
+    fab.run(f"docker run --name {project} -di python")
+
+    # copy ~/config settings
+    for config in configs:
+        fab.put(os.path.join(os.path.expanduser("~"), config))
+        fab.run(f"docker cp {config} {project}:/root/{config}")
+        fab.run(f"rm -rf {config}")
+    
+    # install and run
+    fab.run(f"docker exec {project} pip install {project}")
+    fab.run(f"docker exec -d {project} {project}")
             
 def install_wordpress():
     fab.run("mkdir wordpress || true")
