@@ -132,7 +132,11 @@ def wait_notebook():
             pass
         sleep(5)
     ip = f"{fab.env.host_string}:8888"
-    pyperclip.copy(ip)
+    try:
+        pyperclip.copy(ip)
+    except:
+        log.warning("pyperclip cannot find copy/paste mechanism")
+        pass
     log.info(f"notebook running on {ip} (clipboard)")
 
 ############ fastai specific #################################

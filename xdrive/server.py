@@ -40,7 +40,10 @@ def configure():
         # if not already set then use first ip address on account
         if not fab.env.host_string:
             fab.env.host_string = aws.get_ips()[0]
-            pyperclip.copy(fab.env.host_string)
+            try:
+                pyperclip.copy(fab.env.host_string)
+            except:
+                log.warning("pyperclip cannot find copy/paste mechanism")
             log.info("%s put on clipboard and for fabric"%fab.env.host_string)
     except:
         pass
@@ -129,7 +132,11 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         sleep(1)
         instance.load()
     fab.env.host_string = instance.public_ip_address
-    pyperclip.copy(fab.env.host_string)
+    try:
+        pyperclip.copy(fab.env.host_string)
+    except:
+        log.warning("pyperclip cannot find copy/paste mechanism")
+
     log.info("instance %s running at %s (clipboard)"
                          %(name, instance.public_ip_address))
     wait_ssh()

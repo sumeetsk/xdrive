@@ -82,7 +82,10 @@ def associate_address(instance, ip=None):
         ip = get_ip()
     
     fab.env.host_string = ip
-    pyperclip.copy(fab.env.host_string)
+    try:
+        pyperclip.copy(ip)
+    except:
+        log.warning("pyperclip cannot find copy/paste mechanism")
 
     # associate elastic ip
     client.associate_address(InstanceId=instance.id, PublicIp=ip)
