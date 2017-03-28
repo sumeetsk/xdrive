@@ -28,6 +28,9 @@ def configure():
     # get xdrive config.yaml
     for path in [os.path.join(os.path.expanduser("~"), ".xdrive"),
                  os.getcwd(),
+                 # dev install
+                 os.path.join(__file__, os.pardir, os.pardir),
+                 # remote install
                  os.path.join(sys.prefix, "etc", "xdrive")]:
         try:
             conf = yaml.load(open(os.path.join(path, "config.yaml")))
