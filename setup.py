@@ -9,7 +9,7 @@ from setuptools import setup
 params = dict(
     name='xdrive',
     description='Portable drive that can be moved between AWS instances',
-    version='2.0.1',
+    version='2.0.2',
     url='https://github.com/simonm3/xdrive.git',
     install_requires=['Fabric', 'Fabric3', 'PyYAML',
                       'boto3', 'pandas', 'pyperclip', 'requests'],
