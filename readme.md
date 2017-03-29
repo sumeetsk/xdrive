@@ -116,7 +116,6 @@ be run on GPUs and CPUs
 
 * Uses python3
 * Uses nvidia version 7.5
-* Notebooks are on /v1 outside the container
 
 ### How could you use python2
 

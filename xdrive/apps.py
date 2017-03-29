@@ -144,17 +144,16 @@ def wait_notebook():
 def start_fastai():
     fab.run(f"docker start fastai")
     wait_notebook()
-
+    
 def run_fastai():
-    """ run fastai in container """
+    """ run fastai in container 
+    version root user and nbs in container """
+    log.warning("Working folder is now in container /fastai/deeplearning1/nbs")
     params = "-v /v1:/v1 "\
-             "-w /v1/nbs "\
+             "-w /fastai/deeplearning1/nbs "\
              "-p 8888:8888 -d "\
              "--name fastai "\
              "simonm3/fastai"
-    
-    # /v1/nbs is home folder
-    fab.run("mkdir -p /v1/nbs")
     run(params)
     wait_notebook()
     
