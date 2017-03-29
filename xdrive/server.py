@@ -231,6 +231,13 @@ def spotcheck(requestId):
         # amazon recommend poll every 5 seconds
         time.sleep(5)
 
+def optimise_gpu():
+    """ disable autoboost 
+    https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/accelerated-computing-instances.html#optimize_gpu
+    """
+    fab.sudo("nvidia-smi --auto-boost-default=0")
+    fab.sudo("sudo nvidia-smi -ac 2505,875")
+
 def wait_ssh():
     """ wait for ssh server """
     log.info("waiting for ssh server")
