@@ -27,6 +27,7 @@ View the source
 
 * If notebook says "Connection reset by peer":
    - just rerun the cell
+   - to avoid use fab.env["connection_attempts"] = 2
 * When a termination notice is received from AWS this gives 2 minutes warning.
 This should be enough but if shutdown takes longer then:
    - manually save the volume as a snapshot
