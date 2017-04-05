@@ -4,6 +4,7 @@ import logging as log
 import fabric.api as fab
 from time import sleep
 import json
+from io import BytesIO
 
 class Drive():
     """ persistent storage for use with spot instances
@@ -29,10 +30,10 @@ class Drive():
         
         # if docker on xdrive then stop
         with fab.quiet():
-            r = fab.get("/etc/docker/daemon.json", "_temp", use_sudo=True)
+            f = BytesIO()
+            r = fab.get("/etc/docker/daemon.json", f, use_sudo=True)
         if r.succeeded:
-            daemon = json.load(open("_temp"))
-            folder = daemon["graph"]
+            folder = json.loads(f.getvalue()).get("graph", "")
             if folder.startswith("/v1"):
                 apps.stop_docker()
 
@@ -168,7 +169,9 @@ class Drive():
                 break
             log.info("%s snapshot completed"%item["Progress"])
             sleep(60)
-        log.info("snapshot completed")
+        snapcount = len(aws.get(self.name, aws.ec2.snapshots, unique=False))
+        log.info(f"snapshot completed. You now have {snapcount} "\
+                 f"{self.name} snapshots")
     
     def delete_volume(self):
         volume = aws.get(self.name, collections=aws.ec2.volumes)
@@ -191,7 +194,10 @@ class Drive():
         """ returns most recent snapshot """  
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         if volume:
-            raise Exception("cannot get snapshot as volume exists")
+            raise Exception("%s volume already exists from a "\
+                "previous session. If you want to keep it then save it as a "\
+                "snapshot; name the snapshot %s; and delete volume. If you "\
+                "don't want to keep it then delete it"%(self.name, self.name))
         snapshots = aws.get(self.name, collections=aws.ec2.snapshots, 
                             unique=False)
         if snapshots:
