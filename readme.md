@@ -27,21 +27,28 @@ View the source
 
 * If notebook says "Connection reset by peer":
    - just rerun the cell
-   - to avoid use fab.env["connection_attempts"] = 2
+   - not sure how this can be prevented. tried setting
+fab.env["connection_attempts"] = 2 but no difference.
 * When a termination notice is received from AWS this gives 2 minutes warning.
 This should be enough but if shutdown takes longer then:
    - manually save the volume as a snapshot
    - give the snapshot the name of the volume
    - delete the volume.
-* You can move a container between GPUs but not from CPU to GPU. If you really 
-need to move from CPU to GPU then these are the steps, though it can take some
-time:
-   - docker commit the container to an image
-   - nvidia-docker run --name <container> <image>
+* The GPU drivers are fixed when you run the container the first time. So you  
+can move a container between instances using the same GPU drivers. You cannot 
+directly move a container from a CPU to GPU; or between GPUs with different 
+drivers. This has to be done indirectly and takes some time. These are the steps:
+   - docker commit the container to fastai_image
+   - nvidia-docker run --name fastai fastai_image
 * Terminating server/drive at the same time works well. However disconnecting 
 from a running instance can fail silently:
    - Double check AWS console to make sure no orphaned volumes
    - If necessary force detach/delete or save snapshot manually
+* "Error response from daemon: get nvidia_driver_352.99: no such volume: nvidia_driver_352.99"
+   - You originally ran the container using an older version so need to
+recreate the volume driver and copy to /v1
+   - run any container e.g. nvidia-docker run nvidia/cuda:7.5 nvidia-smi
+   - cp -r --parents /var/lib/nvidia-docker/volumes /v1
    
 ## Benefits
 
