@@ -253,6 +253,15 @@ def wait_ssh():
 
 def terminate(instance, save=True):
     """ terminate instance and save drive as snapshot """
+
+    # wait for fab connection. fab disconnects if idle for too long.
+    for x in range(2):
+        try:
+            fab.run("ls")
+            break
+        except ConnectionResetError:
+            pass
+
     if isinstance(instance, str):
         instance = aws.get(instance)
 
@@ -269,7 +278,7 @@ def terminate(instance, save=True):
         aws.set_name(instance, "")
         log.info("instance terminated")
         return
-        
+    
     apps.stop_docker()
     drive.unmount()
 
