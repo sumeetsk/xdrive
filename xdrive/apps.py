@@ -156,7 +156,24 @@ def run_fastai():
              "simonm3/fastai"
     run(params)
     wait_notebook()
+
+########## fastai8 UNDER TEST ###################################
+
+def start_fastai8():
+    fab.run(f"docker start fastai8")
+    wait_notebook()
     
+def run_fastai8():
+    """ run fastai in container 
+    version root user and nbs in container """
+    params = "-v /v1:/v1 "\
+             "-w /fastai/deeplearning1/nbs "\
+             "-p 8888:8888 -d "\
+             "--name fastai8 "\
+             "simonm3/fastai8"
+    run(params)
+    wait_notebook()
+
 ################## other applications ###############
     
 def install_github(owner, projects):
