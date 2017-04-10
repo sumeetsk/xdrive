@@ -13,10 +13,13 @@ regions:
   ap-southeast-2: {free: ami-1c47407f, gpu: ami-bf0d0adc}
   ca-central-1: {free: ami-ebed508f, gpu: ''}
   eu-central-1: {free: ami-af0fc0c0, gpu: ami-a16ba4ce}
-  eu-west-1: {free: ami-70edb016, gpu: ami-873e61e1}
+  eu-west-1: {free: ami-70edb016, gpu: ami-dc5861ba}
   eu-west-2: {free: ami-f1949e95, gpu: ''}
   sa-east-1: {free: ami-80086dec, gpu: ''}
   us-east-1: {free: ami-0b33d91d, gpu: ami-bb18efad}
   us-east-2: {free: ami-c55673a0, gpu: ''}
   us-west-1: {free: ami-165a0876, gpu: ami-0a9dcf6a}
   us-west-2: {free: ami-f173cc91, gpu: ami-31912f51}
+  
+# ORIGINAL eu-west-1: {free: ami-70edb016, gpu: ami-873e61e1}
+#### new ami gpu UNDER TEST
