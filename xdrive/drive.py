@@ -42,6 +42,9 @@ class Drive():
         self.create_snapshot()
         self.delete_volume()
         
+        snapcount = len(aws.get(self.name, aws.ec2.snapshots, unique=False))
+        log.info(f"You now have {snapcount} {self.name} snapshots")
+        
 ######## lower level functions ############################
         
     def attach(self, instance, user="ec2-user"):
@@ -169,9 +172,7 @@ class Drive():
                 break
             log.info("%s snapshot completed"%item["Progress"])
             sleep(60)
-        snapcount = len(aws.get(self.name, aws.ec2.snapshots, unique=False))
-        log.info(f"snapshot completed. You now have {snapcount} "\
-                 f"{self.name} snapshots")
+        log.info(f"snapshot completed")
     
     def delete_volume(self):
         volume = aws.get(self.name, collections=aws.ec2.volumes)
@@ -204,3 +205,9 @@ class Drive():
             snapshots = sorted(snapshots, 
                                key=lambda s:s.start_time, reverse=True)
             return snapshots[0]
+        
+    def resize(self, size):
+        """ make volume larger """
+        volume = aws.get(self.name, collections=aws.ec2.volumes)
+        aws.client.modify_volume(VolumeId=volume.id, size=size)
+        fab.sudo("resize2fs /dev/xvdf")
