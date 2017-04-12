@@ -257,7 +257,8 @@ def terminate(instance, save=True):
     # wait for fab connection. fab disconnects if idle for too long.
     for x in range(2):
         try:
-            fab.run("ls")
+            with fab.quiet():
+                fab.run("ls")
             break
         except ConnectionResetError:
             pass
