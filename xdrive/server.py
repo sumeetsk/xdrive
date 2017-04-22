@@ -292,7 +292,10 @@ def terminate(instance, save=True):
         drive.create_snapshot()
     
     # note can still be attached even after instance terminated
-    drive.detach()
+    try:
+        drive.detach()
+    except:
+        log.warning("unable to detach drive. trying to delete anyway")
     drive.delete_volume()
 
 def get_tasks(target="python"):
