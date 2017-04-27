@@ -18,7 +18,12 @@ from fabric.contrib.files import exists
 
 ################ xdrive functions ######################
 
+def setdebug():
+    fab.output['everything'] = log.getLogger.getEffectiveLevel() >= log.DEBUG    
+
 def install_docker():
+    setdebug()
+    
     # docker. note closes connection to set new permissions.
     fab.sudo("yum install docker -y -q")
     fab.sudo(f"usermod -aG docker {fab.env.user}")
@@ -33,12 +38,13 @@ def install_nvidia_docker():
     """ install nvidia_docker and plugin
     NOTE: uses instructions for "other" NOT "centos" as this fails
     """
+    setdebug()
+
     # only needed on GPU
-    with fab.quiet():
-        r = fab.run("nvidia-smi")
-        if r.failed:
-            log.warning("nvidia drivers not found")
-            return    
+    r = fab.run("nvidia-smi")
+    if r.failed:
+        log.warning("nvidia drivers not found")
+        return    
     
     fab.sudo("wget -P /tmp https://github.com/NVIDIA/nvidia-docker/releases/"\
             "download/v1.0.0/nvidia-docker_1.0.0_amd64.tar.xz")
@@ -65,6 +71,8 @@ def set_docker_folder(folder="/var/lib"):
     """ set location of docker images and containers
     for xdrive volume = "/v1"
     """
+    setdebug()
+
     # create daemon.json settings
     config = '{"graph":"%s/docker"}'%folder
     fab.sudo("mkdir -p /etc/docker")
@@ -79,16 +87,17 @@ def set_docker_folder(folder="/var/lib"):
 
 def stop_docker():
     """ terminate all containers and stop docker """
-    with fab.quiet():        
-        fab.run("docker ps -aq | xargs docker stop")
-        fab.sudo("service docker stop")
-        log.info("docker stopped")
+    setdebug()
+
+    fab.run("docker ps -aq | xargs docker stop")
+    fab.sudo("service docker stop")
+    log.info("docker stopped")
 
 def commit(container):
     """ commits to image and deletes container """
     # get container metadata
-    with fab.quiet():
-        r = fab.run(f"docker inspect {container}")
+    setdebug()
+    r = fab.run(f"docker inspect {container}")
     c = json.loads(r)[0]
     image = c["Config"]["Image"]
 
@@ -98,16 +107,18 @@ def commit(container):
         
 def dangling():
     """ remove dangling docker images """
+    setdebug()
     return fab.run("docker rmi $(docker images -f dangling=true -q)")
     
 def get_names():
     """ gets list of container names """
+    setdebug()
     return fab.run("docker inspect --format='{{.Name}}' $(docker ps -aq --no-trunc)")
 
 def run(params):
     """ run container """
-    with fab.quiet():
-        r = fab.sudo("nvidia-smi")
+    setdebug()
+    r = fab.sudo("nvidia-smi")
 
     # gpu
     if r.succeeded:
@@ -142,6 +153,7 @@ def wait_notebook():
 ############ fastai specific #################################
 
 def start_fastai():
+    setdebug()
     fab.run(f"docker start fastai")
     wait_notebook()
     
@@ -160,6 +172,7 @@ def run_fastai():
 ########## fastai8 UNDER TEST ###################################
 
 def start_fastai8():
+    setdebug()
     fab.run(f"docker start fastai8")
     wait_notebook()
     
@@ -178,7 +191,7 @@ def run_fastai8():
     
 def install_github(owner, projects):
     """ install github projects or project (if string passed) """
-    
+    setdebug()
     if isinstance(projects, str):
         projects = [projects]
     
@@ -191,6 +204,8 @@ def install_github(owner, projects):
 def install_python(project, configs=None):
     """ installs and runs python project in docker container
     """
+    setdebug()
+
     # cleanup params
     if not configs:
         configs = []
@@ -198,8 +213,7 @@ def install_python(project, configs=None):
         configs = [configs]
     
     # remove container and create fresh one
-    with fab.quiet():
-        fab.run(f"docker rm -f {project}")
+    fab.run(f"docker rm -f {project}")
     fab.run(f"docker run --name {project} -di python")
 
     # copy ~/config settings
@@ -213,12 +227,14 @@ def install_python(project, configs=None):
     fab.run(f"docker exec -d {project} {project}")
             
 def install_wordpress():
+    setdebug()
     fab.run("mkdir wordpress || true")
     fab.put("../wordpress/docker-compose.yml", "wordpress")
     with fab.cd("wordpress"):
         fab.run("docker-compose up -d")
 
 def install_miniconda():
+    setdebug()
     fab.run("wget https://repo.continuum.io/miniconda/"\
                 "Miniconda3-latest-Linux-x86_64.sh")
     fab.run("bash Miniconda3-latest-Linux-x86_64.sh")
@@ -227,6 +243,8 @@ def install_kaggle(user, password):
     """ note bug means must install in home folder not /v1
     will only download data to home and subfolders
     """
+    setdebug()
+
     fab.sudo("sudo yum install -y libxml2-devel libxslt-devel")
     fab.sudo("pip install kaggle-cli")
     fab.run(f"kg config -u {user} -p {password}")

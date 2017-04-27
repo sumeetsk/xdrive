@@ -235,30 +235,31 @@ def optimise_gpu():
     """ disable autoboost 
     https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/accelerated-computing-instances.html#optimize_gpu
     """
+    apps.setdebug()
     fab.sudo("nvidia-smi --auto-boost-default=0")
     fab.sudo("sudo nvidia-smi -ac 2505,875")
 
 def wait_ssh():
     """ wait for ssh server """
+    apps.setdebug()
     log.info("waiting for ssh server")
     while True:
-        with fab.quiet():
-            try:
-                fab.sudo("ls")
-                break
-            except:
-                pass
+        try:
+            fab.sudo("ls")
+            break
+        except:
+            pass
         sleep(1)
     log.info("ssh connected %s"%fab.env.host_string)
 
 def terminate(instance, save=True):
     """ terminate instance and save drive as snapshot """
-
+    apps.setdebug()
+    
     # wait for fab connection. fab disconnects if idle for too long.
     for x in range(2):
         try:
-            with fab.quiet():
-                fab.run("ls")
+            fab.run("ls")
             break
         except ConnectionResetError:
             pass
@@ -302,11 +303,11 @@ def get_tasks(target="python"):
     """ returns dataframe of tasks on server running inside docker containers
         where task contains target string
     """
-    with fab.quiet():
-        r = fab.run("docker inspect --format='{{.Name}}' "\
-                         "$(docker ps -q)")
-        if r.failed:
-            return None
+    apps.setdebug()
+    r = fab.run("docker inspect --format='{{.Name}}' "\
+                     "$(docker ps -q)")
+    if r.failed:
+        return None
     containers = r.splitlines()
     containers = [container.lstrip("/") for container in containers]
     cout = []

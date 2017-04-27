@@ -22,6 +22,8 @@ class Drive():
     def disconnect(self, save=True):
         """ disconnect cleanly and save to snapshot
         """
+        apps.setdebug()
+
         if not save:
             self.unmount()
             self.detach()
@@ -29,9 +31,8 @@ class Drive():
             return
         
         # if docker on xdrive then stop
-        with fab.quiet():
-            f = BytesIO()
-            r = fab.get("/etc/docker/daemon.json", f, use_sudo=True)
+        f = BytesIO()
+        r = fab.get("/etc/docker/daemon.json", f, use_sudo=True)
         if r.succeeded:
             folder = json.loads(f.getvalue()).get("graph", "")
             if folder.startswith("/v1"):
@@ -49,6 +50,8 @@ class Drive():
         
     def attach(self, instance, user="ec2-user"):
         """ attach volume or snapshot """
+        apps.setdebug()
+
         if isinstance(instance, str):
             instance = aws.get(instance, collections=aws.ec2.instances)
 
@@ -94,17 +97,16 @@ class Drive():
         
         # wait until usable.
         while True:
-            with fab.quiet():
-                if fab.sudo("ls -l /dev/xvdf").succeeded:
-                    break
+            if fab.sudo("ls -l /dev/xvdf").succeeded:
+                break
             log.info("waiting until volume visible")
             sleep(1)
         log.info("volume attached")
             
     def formatdisk(self):
         """ format volume if no file system """
-        with fab.quiet():
-            r = fab.sudo("blkid /dev/xvdf")
+        apps.setdebug()
+        r = fab.sudo("blkid /dev/xvdf")
         if r.succeeded:
             log.warning("volume is already formatted")
             return
@@ -115,6 +117,7 @@ class Drive():
         
     def mount(self):
         """ mount volume to v1 """
+        apps.setdebug()
         fab.sudo("mkdir -p /v1")
         fab.sudo("mount /dev/xvdf /v1")
         fab.sudo("chown -R %s:%s /v1"%(fab.env.user, fab.env.user))
@@ -122,17 +125,18 @@ class Drive():
     
     def unmount(self):
         """ unmount """
-        with fab.quiet():        
-            r = fab.sudo("umount /v1")
+        apps.setdebug()
+
+        r = fab.sudo("umount /v1")
+        if r.succeeded:
+            log.info("volume dismounted")
+        else:
+            log.warning("dismount failed. trying to force.")
+            r = fab.sudo("fuser -km /v1")
             if r.succeeded:
                 log.info("volume dismounted")
             else:
-                log.warning("dismount failed. trying to force.")
-                r = fab.sudo("fuser -km /v1")
-                if r.succeeded:
-                    log.info("volume dismounted")
-                else:
-                    log.warning("failed to force dismount")
+                log.warning("failed to force dismount")
            
     def detach(self):
         """ detach """
@@ -208,6 +212,8 @@ class Drive():
         
     def resize(self, size):
         """ make volume larger """
+        apps.setdebug()
+        
         volume = aws.get(self.name, collections=aws.ec2.volumes)
         aws.client.modify_volume(VolumeId=volume.id, size=size)
         fab.sudo("resize2fs /dev/xvdf")
