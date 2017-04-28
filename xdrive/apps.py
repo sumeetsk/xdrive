@@ -19,7 +19,7 @@ from fabric.contrib.files import exists
 ################ xdrive functions ######################
 
 def setdebug():
-    fab.output['everything'] = log.getLogger.getEffectiveLevel() >= log.DEBUG    
+    fab.output['everything'] = log.getLogger().getEffectiveLevel() >= log.DEBUG    
 
 def install_docker():
     setdebug()
