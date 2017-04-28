@@ -85,8 +85,12 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         drive = name of attached, non-boot drive
         spot = spot versus on-demand
     """
+    if isinstance(drive, str):
+        drive = Drive(drive)
+    
     if aws.get(name, aws.ec2.instances):
         raise Exception("instance %s already exists"%name)
+    
     spec = dict(ImageId=conf["amis"]["free"],
                     InstanceType=conf["itypes"]["free"],
                     SecurityGroups=["simon"],
@@ -107,7 +111,6 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
 
     # add drive to instance launch
     if drive:
-        drive = Drive(drive)
         Ebs=dict(DeleteOnTermination=False,
                  VolumeType="gp2",
                  VolumeSize=drivesize)
@@ -120,7 +123,7 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
 
     # create spot or on-demand instance
     if spot:
-        instance = create_spot(spec)
+        instance = create_spot(spec, drive)
     else:
         instance = aws.ec2.create_instances(**spec)[0]
     aws.set_name(instance, name)
@@ -169,7 +172,7 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
                                      %(name, instance.public_ip_address))
     return instance
 
-def create_spot(spec, spotprice=".25"):
+def create_spot(spec, spotprice=".25", drive=None):
     """ returns a spot instance
     """
     del spec["MinCount"]
@@ -198,12 +201,12 @@ def create_spot(spec, spotprice=".25"):
     log.info("spot request fulfilled %s"%instanceId)
 
     # start thread to poll for AWS termination notice
-    t = Thread(target=spotcheck, name=requestId, args=[requestId,])
+    t = Thread(target=spotcheck, name=requestId, args=[requestId, drive])
     t.start()
 
     return aws.ec2.Instance(instanceId)
 
-def spotcheck(requestId):
+def spotcheck(requestId, drive):
     """ poll for spot instance termination notice """
     while True:
         requests = aws.client.describe_spot_instance_requests \
@@ -213,19 +216,14 @@ def spotcheck(requestId):
         try:
             request = requests['SpotInstanceRequests'][0]
         except:
-            return
-
-        # instance already terminated
-        instance = aws.ec2.Instance(request["InstanceId"])
-        if instance.state["Name"] != "running":
+            log.warning("request already deleted. you can save volume manually")
             return
 
         # instance marked for termination
         if request["Status"]["Code"] == "marked-for-termination":
-            name = aws.get_name(instance)
-            log.warning(f"{name} has been marked for termination by AWS.\n"\
-                        "Attempting to terminate cleanly and save data.")
-            terminate(instance)
+            log.warning("spot request marked for termination by amazon. "\
+                        "attempting to save volume as snapshot")
+            drive.disconnect()
             return
 
         # amazon recommend poll every 5 seconds
