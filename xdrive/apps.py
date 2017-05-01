@@ -19,7 +19,7 @@ from fabric.contrib.files import exists
 ################ xdrive functions ######################
 
 def setdebug():
-    fab.output['everything'] = log.getLogger().getEffectiveLevel() >= log.DEBUG    
+    fab.output['everything'] = log.getLogger().getEffectiveLevel() <= log.DEBUG    
 
 def install_docker():
     setdebug()
@@ -41,10 +41,11 @@ def install_nvidia_docker():
     setdebug()
 
     # only needed on GPU
-    r = fab.run("nvidia-smi")
-    if r.failed:
-        log.warning("nvidia drivers not found")
-        return    
+    with fab.quiet():
+        r = fab.run("nvidia-smi")
+        if r.failed:
+            log.warning("nvidia drivers not found")
+            return    
     
     fab.sudo("wget -P /tmp https://github.com/NVIDIA/nvidia-docker/releases/"\
             "download/v1.0.0/nvidia-docker_1.0.0_amd64.tar.xz")
@@ -88,16 +89,17 @@ def set_docker_folder(folder="/var/lib"):
 def stop_docker():
     """ terminate all containers and stop docker """
     setdebug()
-
-    fab.run("docker ps -aq | xargs docker stop")
-    fab.sudo("service docker stop")
-    log.info("docker stopped")
+    with fab.quiet():
+        fab.run("docker ps -aq | xargs docker stop")
+        fab.sudo("service docker stop")
+        log.info("docker stopped")
 
 def commit(container):
     """ commits to image and deletes container """
     # get container metadata
     setdebug()
-    r = fab.run(f"docker inspect {container}")
+    with fab.quiet():
+        r = fab.run(f"docker inspect {container}")
     c = json.loads(r)[0]
     image = c["Config"]["Image"]
 
@@ -213,7 +215,8 @@ def install_python(project, configs=None):
         configs = [configs]
     
     # remove container and create fresh one
-    fab.run(f"docker rm -f {project}")
+    with fab.quiet():
+        fab.run(f"docker rm -f {project}")
     fab.run(f"docker run --name {project} -di python")
 
     # copy ~/config settings

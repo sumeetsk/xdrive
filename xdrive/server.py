@@ -85,7 +85,7 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
         drive = name of attached, non-boot drive
         spot = spot versus on-demand
     """
-    if isinstance(drive, str):
+    if drive:
         drive = Drive(drive)
     
     if aws.get(name, aws.ec2.instances):
@@ -172,7 +172,7 @@ def create(name, itype="free", bootsize=None, drive=None, drivesize=15,
                                      %(name, instance.public_ip_address))
     return instance
 
-def create_spot(spec, spotprice=".25", drive=None):
+def create_spot(spec, drive=None, spotprice=".25"):
     """ returns a spot instance
     """
     del spec["MinCount"]
@@ -201,13 +201,15 @@ def create_spot(spec, spotprice=".25", drive=None):
     log.info("spot request fulfilled %s"%instanceId)
 
     # start thread to poll for AWS termination notice
-    t = Thread(target=spotcheck, name=requestId, args=[requestId, drive])
-    t.start()
+    if drive:
+        t = Thread(target=spotcheck, name=requestId, args=[requestId, drive.name])
+        t.start()
 
     return aws.ec2.Instance(instanceId)
 
 def spotcheck(requestId, drive):
     """ poll for spot instance termination notice """
+    drive = Drive(drive)
     while True:
         requests = aws.client.describe_spot_instance_requests \
                         (SpotInstanceRequestIds=[requestId])
@@ -242,11 +244,10 @@ def wait_ssh():
     apps.setdebug()
     log.info("waiting for ssh server")
     while True:
-        try:
-            fab.sudo("ls")
-            break
-        except:
-            pass
+        with fab.quiet():
+            r = fab.sudo("ls")
+            if r.succeeded:
+                break
         sleep(1)
     log.info("ssh connected %s"%fab.env.host_string)
 
@@ -257,8 +258,8 @@ def terminate(instance, save=True):
     # wait for fab connection. fab disconnects if idle for too long.
     for x in range(2):
         try:
-            fab.run("ls")
-            break
+            with fab.quiet():
+                fab.run("ls")
         except ConnectionResetError:
             pass
 
@@ -302,10 +303,11 @@ def get_tasks(target="python"):
         where task contains target string
     """
     apps.setdebug()
-    r = fab.run("docker inspect --format='{{.Name}}' "\
+    with fab.quiet():
+        r = fab.run("docker inspect --format='{{.Name}}' "\
                      "$(docker ps -q)")
-    if r.failed:
-        return None
+        if r.failed:
+            return None
     containers = r.splitlines()
     containers = [container.lstrip("/") for container in containers]
     cout = []

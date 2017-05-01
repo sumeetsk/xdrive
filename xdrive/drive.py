@@ -32,7 +32,8 @@ class Drive():
         
         # if docker on xdrive then stop
         f = BytesIO()
-        r = fab.get("/etc/docker/daemon.json", f, use_sudo=True)
+        with fab.quiet():
+            r = fab.get("/etc/docker/daemon.json", f, use_sudo=True)
         if r.succeeded:
             folder = json.loads(f.getvalue()).get("graph", "")
             if folder.startswith("/v1"):
@@ -106,7 +107,8 @@ class Drive():
     def formatdisk(self):
         """ format volume if no file system """
         apps.setdebug()
-        r = fab.sudo("blkid /dev/xvdf")
+        with fab.quiet():
+            r = fab.sudo("blkid /dev/xvdf")
         if r.succeeded:
             log.warning("volume is already formatted")
             return
@@ -126,8 +128,9 @@ class Drive():
     def unmount(self):
         """ unmount """
         apps.setdebug()
-
-        r = fab.sudo("umount /v1")
+        
+        with fab.quiet():
+            r = fab.sudo("umount /v1")
         if r.succeeded:
             log.info("volume dismounted")
         else:
