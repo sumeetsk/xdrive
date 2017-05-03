@@ -131,15 +131,15 @@ class Drive():
         
         with fab.quiet():
             r = fab.sudo("umount /v1")
-        if r.succeeded:
-            log.info("volume dismounted")
-        else:
-            log.warning("dismount failed. trying to force.")
-            r = fab.sudo("fuser -km /v1")
             if r.succeeded:
                 log.info("volume dismounted")
             else:
-                log.warning("failed to force dismount")
+                log.warning("dismount failed. trying to force.")
+                r = fab.sudo("fuser -km /v1")
+                if r.succeeded:
+                    log.info("volume dismounted")
+                else:
+                    log.warning("failed to force dismount")
            
     def detach(self):
         """ detach """

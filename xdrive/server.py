@@ -245,7 +245,10 @@ def wait_ssh():
     log.info("waiting for ssh server")
     while True:
         with fab.quiet():
-            r = fab.sudo("ls")
+            try:
+                r = fab.sudo("ls")
+            except:
+                pass
             if r.succeeded:
                 break
         sleep(1)
